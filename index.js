@@ -42,7 +42,66 @@ const createByPackage = async (pkgData) => {
     await handleSprites(spritesMap);
 
     let soundInfo = packageData["packageDescription"]['resources']['sound'];
-    handleSound(soundInfo);
+    handleSound(soundInfo, false);
+
+    let fontInfo = packageData["packageDescription"]['resources']['font'];
+    let fontMap = {};
+    fontInfo.forEach((item) => {
+        let font = item['$'];
+        let file = `${font['id']}.fnt`;
+        font['content'] = pkgData[file];
+        fontMap[file] = font;
+    })
+    createFileByData(fontMap, '.fnt');
+    let movieclipInfo = packageData["packageDescription"]['resources']['movieclip'];
+    let movieclipMap = {};
+    movieclipInfo.forEach((item) => {
+        let movieclip = item['$'];
+        let file = `${movieclip['id']}.xml`;
+        movieclip['content'] = pkgData[file];
+        delete pkgData[file];
+        movieclipMap[file] = movieclip;
+    })
+
+    await handleMovieclip(movieclipMap);
+
+    let componentInfo = packageData["packageDescription"]['resources']['component'];
+    let componentMap = {};
+    componentInfo.forEach((item) => {
+        let component = item['$'];
+        let file = `${component['id']}.xml`;
+        component['content'] = pkgData[file];
+        componentMap[file] = component;
+    })
+    createFileByData(componentMap, ".xml");
+    let path = resolve(tempPath);
+    let files = fs.readdirSync(path);
+    files.forEach((file) => {
+        fs.unlinkSync(path + '/' + file);
+    });
+    fs.rmdirSync(path);
+}
+
+const createByPackage2 = async (pkgData) => {
+    // 处理package.xml 获取包名&id
+    const packageData = pkgData["package.xml"];
+
+    // 校验纹理合图是否存在同一目录
+    let atlasInfo = packageData["packageDescription"]['resources']['atlas'];
+    handleAltas(atlasInfo);
+
+    // 解析 sprites.bytes
+    let imageInfo = packageData["packageDescription"]['resources']['image'];
+    let spritesMap = pkgData['sprites.bytes'];
+    imageInfo.forEach((item) => {
+        let image = item['$'];
+        let key = image['id'];
+        Object.assign(spritesMap[key], image);
+    })
+    await handleSprites(spritesMap,false);
+
+    let soundInfo = packageData["packageDescription"]['resources']['sound'];
+    handleSound(soundInfo,false);
 
     let fontInfo = packageData["packageDescription"]['resources']['font'];
     let fontMap = {};
@@ -245,6 +304,9 @@ function decodeBinary(buffer) {
                 }
 
             case 4: // Atlas:
+                {
+                    break;
+                }
             case 2: // Sound:
             case 7: // Misc:
                 {
@@ -295,7 +357,7 @@ function decodeBinary(buffer) {
         rect.y = buffer.readInt();
         rect.width = buffer.readInt();
         rect.height = buffer.readInt();
-        let sprite = { atlas: pi, rect: rect, offset: {}, originalSize: {} };
+        let sprite = { atlas: pi['id'], rect: rect, offset: {}, originalSize: {} };
         sprite.rotated = buffer.readBool();
         if (ver2 && buffer.readBool()) {
             sprite.offset.x = buffer.readInt();
@@ -309,7 +371,7 @@ function decodeBinary(buffer) {
         }
         _sprites[itemId] = sprite;
         // handle sprites
-        
+
         buffer.pos = nextPos;
     }
 
@@ -387,17 +449,24 @@ const parseSprites = (resDic) => {
     return sprites;
 }
 
-const handleSprites = async (spritesMap) => {
+
+/**
+ * 
+ * @param {*} spritesMap 
+ * @param {*} flag  need file ext
+ */
+const handleSprites = async (spritesMap, flag = true) => {
     console.log("start crop image");
     for (key in spritesMap) {
         let item = spritesMap[key];
-        let { name, path } = item;
-        let { atlas, rect, rotated } = item;
+        let { name, path, atlas, rect, rotated } = item;
         if (!name) { // atlas temp
             name = key;
             path = temp
         }
-        let output = path ? `${outputPath}${importFileName}${path}${name}.png` : `${outputPath}${importFileName}/${name}.png`;
+        let output = path ? `${outputPath}${importFileName}${path}${name}` : `${outputPath}${importFileName}/${name}`;
+        output = flag ? `${path}.png` : path;
+
         await new Promise((resolve, reject) => {
             Jimp.read(`${inputPath}${pkgName}@${atlas}.png`)
                 .then(image => {
@@ -422,14 +491,14 @@ const handleSprites = async (spritesMap) => {
     console.log("finish crop image");
 }
 
-const handleSound = async (soundInfo) => {
+const handleSound = async (soundInfo, flag = true) => {
     console.log("start handleSound");
     soundInfo.forEach((item) => {
         let sound = item['$'];
         let { file, path, name } = sound;
         let extName = file.split('.').pop();
         let output = path ? `${outputPath}${importFileName}${path}` : `${outputPath}${importFileName}/`;
-        file = `${inputPath}${pkgName}@${file}`;
+        file = flag ? `${inputPath}${pkgName}@${file}` : `${inputPath}${file}`;
         if (exists(file)) {
             if (!exists(output)) {
                 fs.mkdirSync(resolve(output));
@@ -554,6 +623,7 @@ const handlePackageData2 = (pkgData) => {
                 "movieclip": [],
                 "font": [],
                 "sound": [],
+                "atlas": []
             },
             "publish": {
                 "$": { pkgName },
@@ -568,6 +638,8 @@ const handlePackageData2 = (pkgData) => {
     let movieclips = pkgXmlData['packageDescription']['resources']['movieclip'];
     let fonts = pkgXmlData['packageDescription']['resources']['font'];
     let sounds = pkgXmlData['packageDescription']['resources']['sound'];
+    let atlas = pkgXmlData['packageDescription']['resources']['atlas'];
+
     data.forEach((element) => {
         let { type, id, name, path, size, exported, file, smoothing } = element;
         let item = {
@@ -606,6 +678,9 @@ const handlePackageData2 = (pkgData) => {
                 item['$']['name'] = item['$']['name'] + '.xml';
                 components.push(item);
                 break;
+            case 4:
+                atlas.push(item);
+                break;
             case 5:
                 item['$']['name'] = item['$']['name'] + '.fnt';
                 for (let key in sprites) {
@@ -622,46 +697,12 @@ const handlePackageData2 = (pkgData) => {
                 break;
         }
     })
+    pkgData['package.xml'] = pkgXmlData;
 
     return json2xml(pkgXmlData);
 }
 
-/**
- *  check package format
- *  decodeUncompressed only for [Laya/Egret/CocosCreateor] version 
- */
-const parseBuffer = async (buf) => {
-    let ba = new ByteArray(buf.buffer), data = {};
-    if (ba.readUint() == 0x46475549) { // binary 
-        ba.version = ba.readInt();
-        let compressed = ba.readBool();
 
-        if (compressed) { // compressed
-            // let buf = new Uint8Array(ba.buffer, ba.position, ba.length - ba.position);
-            // let inflater = new Zlib.inflateRawSync(buf);
-            // let buffer2 = new ByteBuffer(inflater.decompress());
-            // buffer2.version = buffer.version;
-            // buffer = buffer2;
-        } else { // Uncompressed
-            pkgId = ba.readString();
-            pkgName = ba.readString();
-            ba.skip(20);
-            data = decodeBinary(ba);
-        }
-
-        await handlePackageFile2(data);
-    } else { // xml
-        let mark = new Uint8Array(buf.buffer.slice(0, 2));
-        if (mark[0] == 0x50 && mark[1] == 0x4b) { // compressed
-            data = decodeUncompressed(buf.buffer);
-        } else { // Uncompressed
-            let xml = zlib.inflateRawSync(buf).toString();
-            data = parseXML(xml);
-        }
-        await handlePackageFile(data); // create package.xml
-    }
-    return data;
-}
 
 const handlePackageFile = async (data) => {
     let packageXml = XMLHeader + data['package.xml'];
@@ -683,11 +724,55 @@ const handlePackageFile2 = async (data) => {
     fs.writeFileSync(`${output}/package.xml`, packageXml);
 }
 
+/**
+ *  check package format
+ *  decodeUncompressed only for [Laya/Egret/CocosCreateor] version 
+ */
+const parseBuffer = async (buf) => {
+    let data;
+    let mark = new Uint8Array(buf.buffer.slice(0, 2));
+    if (mark[0] == 0x50 && mark[1] == 0x4b) { // compressed
+        data = decodeUncompressed(buf.buffer);
+    } else { // Uncompressed
+        let xml = zlib.inflateRawSync(buf).toString();
+        data = parseXML(xml);
+    }
+    return data;
+}
+
+const parseBuffer2 = async (ba) => {
+    let data;
+    ba.version = ba.readInt();
+    let compressed = ba.readBool();
+    if (compressed) { // compressed
+        // let buf = new Uint8Array(ba.buffer, ba.position, ba.length - ba.position);
+        // let inflater = new Zlib.inflateRawSync(buf);
+        // let buffer2 = new ByteBuffer(inflater.decompress());
+        // buffer2.version = buffer.version;
+        // buffer = buffer2;
+    } else { // Uncompressed
+        pkgId = ba.readString();
+        pkgName = ba.readString();
+        ba.skip(20);
+        data = decodeBinary(ba);
+        // data = parseXML2(); // obj -> xml
+    }
+    return data;
+}
+
 async function start() {
     console.time('start');
-    let buf = fs.readFileSync(`${inputPath}${importFileName}.fui`); // Buffer 
-    let pkgData = await parseBuffer(buf);
-    await createByPackage(pkgData);
+    let buf = fs.readFileSync(`${inputPath}${importFileName}.bin`); // Buffer 
+    let ba = new ByteArray(buf.buffer), pkgData;
+    if (ba.readUint() == 0x46475549) { // binary 
+        pkgData = await parseBuffer2(ba);
+        await handlePackageFile2(pkgData);
+        await createByPackage2(pkgData);
+    } else { // xml
+        pkgData = await parseBuffer(buf);
+        await handlePackageFile(pkgData); // create package.xml
+        await createByPackage(pkgData);
+    }
     console.timeEnd('start');
 }
 
