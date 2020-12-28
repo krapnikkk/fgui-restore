@@ -155,7 +155,7 @@ class ByteArray {
         this._pos += count;
         return ba;
     }
-    
+
 
     seek(indexTablePos, blockIndex) {
         var tmp = this._pos;
@@ -189,4 +189,4 @@ class ByteArray {
     }
 }
 
-module.exports = { ByteArray };
+module.exports = ByteArray;

@@ -5,7 +5,12 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["fairygui","restore","viewer","cli"],
+  "keywords": [
+    "fairygui",
+    "restore",
+    "viewer",
+    "cli"
+  ],
   "author": "krapnik",
   "license": "ISC",
   "description": "a cli for fairygui",

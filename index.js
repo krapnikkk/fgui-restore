@@ -1,10 +1,11 @@
 const fs = require('fs');
 const zlib = require("zlib");
 const Jimp = require('jimp');
-const resolve = require('path').resolve;
+const ByteArray = require('./ByteArray');
+const { resolve } = require('path');
 const { exists, xml2json, json2xml } = require('./utils/utils');
 const { createMovieClip } = require('./build/create');
-const { ByteArray } = require('./ByteArray');
+
 
 const XMLHeader = '<?xml version="1.0" encoding="utf-8"?>\n';
 const packageTML = `${XMLHeader}
@@ -12,13 +13,13 @@ const packageTML = `${XMLHeader}
 </packageDescription>`;
 
 
-let improtFileName = "Basics",
-    inputPath = "./dist/",
+let importFileName = "Basics",
+    inputPath = "./test/",
     outputPath = './output/',
     temp = '/temp/',
-    tempPath = `${outputPath}${improtFileName}${temp}`;
-
-let pkgName = "", pkgId = "";
+    tempPath = `${outputPath}${importFileName}${temp}`,
+    pkgName = "",
+    pkgId = "";
 
 const createByPackage = async (pkgData) => {
     // 处理package.xml 获取包名&id
@@ -193,7 +194,7 @@ function decodeBinary(buffer) {
                     }
                     else if (scaleOption == 2)
                         pi.scaleByTile = true;
-
+                    pi.scaleOption = scaleOption;
                     pi.smoothing = buffer.readBool();
                     break;
                 }
@@ -209,6 +210,24 @@ function decodeBinary(buffer) {
             case 5: // Font:
                 {
                     pi.rawData = buffer.readBuffer();
+                    pi.rawData.seek(0, 0);
+                    let font = {};
+                    let ttf = pi.rawData.readBool();
+                    font.tint = pi.rawData.readBool();
+                    font.resizable = pi.rawData.readBool();
+                    font.hasChannel = pi.rawData.readBool();
+                    var fontSize = pi.rawData.readInt();
+                    var xadvance = pi.rawData.readInt();
+                    var lineHeight = pi.rawData.readInt();
+                    var imgCnt = pi.rawData.readInt();
+                    var imgNextPos = pi.rawData.readShort();
+                    imgNextPos += pi.rawData.pos;
+
+                    let bg = {};
+                    var ch = pi.rawData.readChar();
+                    // font.glyphs[ch] = bg;
+
+                    var img = pi.rawData.readS();
                     break;
                 }
 
@@ -290,7 +309,7 @@ function decodeBinary(buffer) {
         }
         _sprites[itemId] = sprite;
         // handle sprites
-
+        
         buffer.pos = nextPos;
     }
 
@@ -319,7 +338,7 @@ function decodeBinary(buffer) {
     // console.log(_itemMap);
     // console.log(_sprites); // sprites.bytes
     // console.log(_pixelHitTestDatas);
-    return {"package.xml":_items,"sprites.bytes":_sprites,"files":_itemMap};
+    return { "package.xml": _items, "sprites.bytes": _sprites, "files": _itemMap };
 }
 
 const parseXML = (source) => {
@@ -378,9 +397,9 @@ const handleSprites = async (spritesMap) => {
             name = key;
             path = temp
         }
-        let output = path ? `${outputPath}${improtFileName}${path}${name}.png` : `${outputPath}${improtFileName}/${name}.png`;
+        let output = path ? `${outputPath}${importFileName}${path}${name}.png` : `${outputPath}${importFileName}/${name}.png`;
         await new Promise((resolve, reject) => {
-            Jimp.read(`${inputPath}${improtFileName}@${atlas}.png`)
+            Jimp.read(`${inputPath}${pkgName}@${atlas}.png`)
                 .then(image => {
                     // Do stuff with the image.
                     let { x, y, width, height } = rect;
@@ -409,8 +428,8 @@ const handleSound = async (soundInfo) => {
         let sound = item['$'];
         let { file, path, name } = sound;
         let extName = file.split('.').pop();
-        let output = path ? `${outputPath}${improtFileName}${path}` : `${outputPath}${improtFileName}/`;
-        file = `${inputPath}${improtFileName}@${file}`;
+        let output = path ? `${outputPath}${importFileName}${path}` : `${outputPath}${importFileName}/`;
+        file = `${inputPath}${pkgName}@${file}`;
         if (exists(file)) {
             if (!exists(output)) {
                 fs.mkdirSync(resolve(output));
@@ -428,7 +447,7 @@ const handleAltas = (atlasInfo) => {
     // todo check atlas size
     if (!atlasInfo.every((item) => {
         let file = item['$']['file'];
-        let name = `${inputPath}${improtFileName}@${file}`;
+        let name = `${inputPath}${pkgName}@${file}`;
         if (exists(name)) {
             return true;
         } else {
@@ -445,7 +464,7 @@ const createFileByData = (data, ext) => {
     for (let key in data) {
         let item = data[key];
         let { path, content, name } = item;
-        let output = path ? `${outputPath}${improtFileName}${path}` : `${outputPath}${improtFileName}/`;
+        let output = path ? `${outputPath}${importFileName}${path}` : `${outputPath}${importFileName}/`;
         if (!exists(output)) {
             fs.mkdirSync(resolve(output));
         }
@@ -463,7 +482,7 @@ const handleMovieclip = async (movieclipInfo) => {
     for (let key in movieclipInfo) {
         let movieclip = movieclipInfo[key];
         let { path, name } = movieclip;
-        let output = path ? `${outputPath}${improtFileName}${path}${name}.jta` : `${outputPath}${improtFileName}/${name}.jta`;
+        let output = path ? `${outputPath}${importFileName}${path}${name}.jta` : `${outputPath}${importFileName}/${name}.jta`;
 
         await createMovieClip(movieclip, tempPath, output);
     }
@@ -521,62 +540,90 @@ const handlePackageData = async (data) => {
     return json2xml(xml);
 }
 
-const handlePackageData2 = (data)=>{
-    console.log(data);
-    let pkgData = {
-        'packageDescription':{
-            "$":{
-                id:pkgId
+const handlePackageData2 = (pkgData) => {
+    let data = pkgData['package.xml'];
+    let sprites = pkgData['sprites.bytes'];
+    let pkgXmlData = {
+        'packageDescription': {
+            "$": {
+                id: pkgId
             },
-
+            "resources": {
+                "component": [],
+                "image": [],
+                "movieclip": [],
+                "font": [],
+                "sound": [],
+            },
+            "publish": {
+                "$": { pkgName },
+                "atlas": {
+                    "$": { name: "Default", index: 0 }
+                }
+            }
         }
     }
-    let { id, name } = xml['packageDescription']['$'];
-    delete xml['packageDescription']['$']; // reset
-    delete xml['packageDescription']['resources']['atlas'];
-    xml['packageDescription']['$'] = { id };
-    xml['packageDescription']['publish'] = { "$": { name } };
-    xml['packageDescription']['publish']['atlas'] = { "$": { name: "Default", index: 0 } };
+    let components = pkgXmlData['packageDescription']['resources']['component'];
+    let images = pkgXmlData['packageDescription']['resources']['image'];
+    let movieclips = pkgXmlData['packageDescription']['resources']['movieclip'];
+    let fonts = pkgXmlData['packageDescription']['resources']['font'];
+    let sounds = pkgXmlData['packageDescription']['resources']['sound'];
+    data.forEach((element) => {
+        let { type, id, name, path, size, exported, file, smoothing } = element;
+        let item = {
+            "$": {
 
-    let components = xml['packageDescription']['resources']['component'];
-    let images = xml['packageDescription']['resources']['image'];
-    let movieclips = xml['packageDescription']['resources']['movieclip'];
-    let fonts = xml['packageDescription']['resources']['font'];
-    let sounds = xml['packageDescription']['resources']['sound'];
-    if (components) {
-        components.forEach((item) => {
-            item['$']['name'] = item['$']['name'] + '.xml';
-            delete item['$']['size'];
-        })
-    }
-    if (images) {
-        images.forEach((item) => {
-            item['$']['name'] = item['$']['name'] + '.png';
-            delete item['$']['size'];
-        })
-    }
-    if (movieclips) {
-        movieclips.forEach((item) => {
-            item['$']['name'] = item['$']['name'] + '.jta';
-            delete item['$']['size'];
-        })
-    }
-    if (fonts) {
-        fonts.forEach((item) => {
-            item['$']['name'] = item['$']['name'] + '.fnt';
-            delete item['$']['size'];
-        })
-    }
-    if (sounds) {
-        sounds.forEach((item) => {
-            // todo check file ext
-            item['$']['name'] = item['$']['name'] + '.' + item['$']['file'].split(".").pop();
-            delete item['$']['size'];
-            delete item['$']['file'];
-        })
-    }
-    debugger;
-    return
+            }
+        };
+        Object.assign(item['$'], { id, name, path, size, file, exported, smoothing });
+        if (!item['$']['exported']) {
+            delete item['$']['exported'];
+        }
+        if (item['$']['smoothing']) {
+            delete item['$']['smoothing'];
+        }
+        switch (type) {
+            case 0:
+                if (element['scaleOption'] == 1) { // 9grid
+                    item['$']['scale'] = '9grid';
+                    let { x, y, width, height } = element['scale9Grid'];
+                    item['$']['scale9Grid'] = `${x},${y},${width},${height}`;
+                } else if (element['scaleOption'] == 2) { // tile
+                    item['$']['scale'] = 'tile';
+                }
+                item['$']['name'] = item['$']['name'] + '.png';
+                images.push(item);
+                break;
+            case 1:
+                item['$']['name'] = item['$']['name'] + '.jta';
+                movieclips.push(item);
+                break;
+            case 2:
+                item['$']['name'] = item['$']['name'] + '.' + item['$']['file'].split(".").pop();
+                sounds.push(item);
+                break;
+            case 3:
+                item['$']['name'] = item['$']['name'] + '.xml';
+                components.push(item);
+                break;
+            case 5:
+                item['$']['name'] = item['$']['name'] + '.fnt';
+                for (let key in sprites) {
+                    let sprite = sprites[key];
+                    if (sprites[id] && JSON.stringify(sprite['rect']) === JSON.stringify(sprites[id]['rect']) && key != id) {
+                        item['$']['texture'] = key;
+                        item['$']['fontTexture'] = key;
+                    }
+                }
+
+                fonts.push(item);
+                break;
+            default:
+                break;
+        }
+    })
+
+    return json2xml(pkgXmlData);
 }
 
 /**
@@ -601,7 +648,8 @@ const parseBuffer = async (buf) => {
             ba.skip(20);
             data = decodeBinary(ba);
         }
-        await handlePackageFile2(data['package.xml']);
+
+        await handlePackageFile2(data);
     } else { // xml
         let mark = new Uint8Array(buf.buffer.slice(0, 2));
         if (mark[0] == 0x50 && mark[1] == 0x4b) { // compressed
@@ -619,16 +667,16 @@ const handlePackageFile = async (data) => {
     let packageXml = XMLHeader + data['package.xml'];
     packageXml = await handlePackageData(packageXml);
 
-    let output = `${outputPath}${improtFileName}`;
+    let output = `${outputPath}${importFileName}`;
     if (!exists(output)) {
         fs.mkdirSync(resolve(output));
     }
     fs.writeFileSync(`${output}/package.xml`, packageXml);
 }
 
-const handlePackageFile2 = async (data)=>{
-    let packageXml = await handlePackageData2(data);
-    let output = `${outputPath}${improtFileName}`;
+const handlePackageFile2 = async (data) => {
+    let packageXml = handlePackageData2(data);
+    let output = `${outputPath}${importFileName}`;
     if (!exists(output)) {
         fs.mkdirSync(resolve(output));
     }
@@ -637,7 +685,7 @@ const handlePackageFile2 = async (data)=>{
 
 async function start() {
     console.time('start');
-    let buf = fs.readFileSync(`${inputPath}${improtFileName}.bin`); // Buffer 
+    let buf = fs.readFileSync(`${inputPath}${importFileName}.fui`); // Buffer 
     let pkgData = await parseBuffer(buf);
     await createByPackage(pkgData);
     console.timeEnd('start');
