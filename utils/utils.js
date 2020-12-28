@@ -21,6 +21,17 @@ const xml2json = (xml) => {
     })
 }
 
+const getItemById = (itemMap, id) => {
+    let item;
+    for (let key in itemMap) {
+        let ele = itemMap[key];
+        if (ele.id == id) {
+            item = ele;
+        }
+    };
+    return item;
+}
+
 const json2xml = (json) => {
     var builder = new Builder({ xmldec: { 'version': '1.0', 'encoding': 'UTF-8' } });
     return builder.buildObject(json);
@@ -30,3 +41,4 @@ module.exports.xml2json = xml2json;
 module.exports.json2xml = json2xml;
 module.exports.exists = exists;
 module.exports.uuidv4 = uuidv4;
+module.exports.getItemById = getItemById;

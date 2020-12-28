@@ -3,15 +3,11 @@ const zlib = require("zlib");
 const Jimp = require('jimp');
 const ByteArray = require('./ByteArray');
 const { resolve } = require('path');
-const { exists, xml2json, json2xml } = require('./utils/utils');
+const { exists, xml2json, json2xml, getItemById } = require('./utils/utils');
 const { createMovieClip } = require('./build/create');
 
 
 const XMLHeader = '<?xml version="1.0" encoding="utf-8"?>\n';
-const packageTML = `${XMLHeader}
-<packageDescription id="{id}" type="{type}" version="3.0"/>
-</packageDescription>`;
-
 
 let importFileName = "Basics",
     inputPath = "./test/",
@@ -19,7 +15,8 @@ let importFileName = "Basics",
     temp = '/temp/',
     tempPath = `${outputPath}${importFileName}${temp}`,
     pkgName = "",
-    pkgId = "";
+    pkgId = "",
+    fontRawDataMap = {};
 
 const createByPackage = async (pkgData) => {
     // 处理package.xml 获取包名&id
@@ -88,7 +85,7 @@ const createByPackage2 = async (pkgData) => {
 
     // 校验纹理合图是否存在同一目录
     let atlasInfo = packageData["packageDescription"]['resources']['atlas'];
-    handleAltas(atlasInfo);
+    // handleAltas(atlasInfo);
 
     // 解析 sprites.bytes
     let imageInfo = packageData["packageDescription"]['resources']['image'];
@@ -98,17 +95,17 @@ const createByPackage2 = async (pkgData) => {
         let key = image['id'];
         Object.assign(spritesMap[key], image);
     })
-    await handleSprites(spritesMap,false);
+    // await handleSprites(spritesMap, false);
 
     let soundInfo = packageData["packageDescription"]['resources']['sound'];
-    handleSound(soundInfo,false);
+    // handleSound(soundInfo, false);
 
     let fontInfo = packageData["packageDescription"]['resources']['font'];
     let fontMap = {};
     fontInfo.forEach((item) => {
         let font = item['$'];
         let file = `${font['id']}.fnt`;
-        font['content'] = pkgData[file];
+        font['content'] = encodeFontData(font['id']);
         fontMap[file] = font;
     })
     createFileByData(fontMap, '.fnt');
@@ -139,6 +136,87 @@ const createByPackage2 = async (pkgData) => {
         fs.unlinkSync(path + '/' + file);
     });
     fs.rmdirSync(path);
+}
+
+function encodeFontData(id) {
+    let rawData = fontRawDataMap[id], pi = {};
+    rawData.seek(0, 0);
+    pi.font = { glyphs: [] };
+    pi.font.ttf = rawData.readBool();
+    pi.font.tint = rawData.readBool();
+    pi.font.resizable = rawData.readBool();
+    pi.font.hasChannel = rawData.readBool();
+    pi.font.size = rawData.readInt();
+    let xadvance = rawData.readInt();
+    let lineHeight = rawData.readInt();
+
+    rawData.seek(0, 1);
+
+    var mainTexture;
+    let mainSprite = _sprites[id];
+    if (mainSprite)
+        mainTexture = this.getItemAsset(mainSprite.atlas);
+
+    let charCnt = rawData.readInt();
+    for (let j = 0; j < charCnt; j++) {
+        let nextPosition = rawData.readShort();
+        nextPosition += rawData.pos;
+
+        let bg = {};
+        let ch = rawData.readChar();
+        pi.font.glyphs[ch] = bg;
+
+        let img = rawData.readS();
+        let bx = rawData.readInt();
+        let by = rawData.readInt();
+        bg.x = rawData.readInt();
+        bg.y = rawData.readInt();
+        bg.width = rawData.readInt();
+        bg.height = rawData.readInt();
+        bg.advance = rawData.readInt();
+        bg.channel = rawData.readByte();
+        if (bg.channel == 1)
+            bg.channel = 3;
+        else if (bg.channel == 2)
+            bg.channel = 2;
+        else if (bg.channel == 3)
+            bg.channel = 1;
+
+        if (pi.font.ttf) { // face
+            bg.texture = {};
+            bg.texture.bitmapData = mainTexture.bitmapData;
+            bg.texture.$initData(mainTexture.$bitmapX + bx + mainSprite.rect.x, mainTexture.$bitmapY + by + mainSprite.rect.y,
+                bg.width, bg.height,
+                mainSprite.offset.x, mainSprite.offset.y,
+                mainSprite.originalSize.x, mainSprite.originalSize.y,
+                mainTexture.$sourceWidth, mainTexture.$sourceHeight,
+                mainSprite.rotated);
+
+            bg.lineHeight = lineHeight;
+        }
+        else { // creator=UIBuilder
+            let charImg = getItemById(_itemMap, img);
+            if (charImg) {
+                // this.getItemAsset(charImg);
+                bg.width = charImg.width;
+                bg.height = charImg.height;
+                // bg.texture = charImg.asset;
+            }
+
+            if (bg.advance == 0) {
+                if (xadvance == 0)
+                    bg.advance = bg.x + bg.width;
+                else
+                    bg.advance = xadvance;
+            }
+
+            bg.lineHeight = bg.y < 0 ? bg.height : (bg.y + bg.height);
+            if (bg.lineHeight < pi.font.size)
+                bg.lineHeight = pi.font.size;
+        }
+        buffer.position = nextPosition;
+    }
+    console.log(pi.font.glyphs);
 }
 
 function decodeUncompressed(buf) {
@@ -268,25 +346,8 @@ function decodeBinary(buffer) {
 
             case 5: // Font:
                 {
-                    pi.rawData = buffer.readBuffer();
-                    pi.rawData.seek(0, 0);
-                    let font = {};
-                    let ttf = pi.rawData.readBool();
-                    font.tint = pi.rawData.readBool();
-                    font.resizable = pi.rawData.readBool();
-                    font.hasChannel = pi.rawData.readBool();
-                    var fontSize = pi.rawData.readInt();
-                    var xadvance = pi.rawData.readInt();
-                    var lineHeight = pi.rawData.readInt();
-                    var imgCnt = pi.rawData.readInt();
-                    var imgNextPos = pi.rawData.readShort();
-                    imgNextPos += pi.rawData.pos;
-
-                    let bg = {};
-                    var ch = pi.rawData.readChar();
-                    // font.glyphs[ch] = bg;
-
-                    var img = pi.rawData.readS();
+                    fontRawDataMap[pi.id] = buffer.readBuffer();//
+                    // pi.rawData = buffer.readBuffer();
                     break;
                 }
 
@@ -465,7 +526,7 @@ const handleSprites = async (spritesMap, flag = true) => {
             path = temp
         }
         let output = path ? `${outputPath}${importFileName}${path}${name}` : `${outputPath}${importFileName}/${name}`;
-        output = flag ? `${path}.png` : path;
+        output = flag ? `${output}.png` : output;
 
         await new Promise((resolve, reject) => {
             Jimp.read(`${inputPath}${pkgName}@${atlas}.png`)
