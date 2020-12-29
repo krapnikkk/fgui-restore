@@ -3,7 +3,7 @@ const zlib = require("zlib");
 const Jimp = require('jimp');
 const ByteArray = require('./ByteArray');
 const { resolve } = require('path');
-const { exists, xml2json, json2xml, getItemById,ascii2Str } = require('./utils/utils');
+const { exists, xml2json, json2xml, getItemById } = require('./utils/utils');
 const { createMovieClip } = require('./build/create');
 
 
@@ -109,7 +109,9 @@ const createByPackage2 = async (pkgData) => {
         font['content'] = decodeFontData(font['id'], sprites, files);
         fontMap[file] = font;
     })
-    createFileByData(fontMap, '.fnt');
+    createFileByData(fontMap, '');
+    debugger
+    return
     let movieclipInfo = packageData["packageDescription"]['resources']['movieclip'];
     let movieclipMap = {};
     movieclipInfo.forEach((item) => {
@@ -216,7 +218,7 @@ function decodeFontData(id, sprites, files) {
         }
         // buffer.position = nextPosition;
     }
-    console.log(pi.font.glyphs);
+    // console.log(pi.font.glyphs);
     return parseFont(pi.font);
 }
 
@@ -224,8 +226,14 @@ function parseFont(font){
     console.log(font);
     let str='';
     let {lineHeight,glyphs}= font;
+    // todo complete font
     if(font.ttf){
-
+        str += `info creator=UIBuilder\ncommon lineHeight=${lineHeight}\n`;
+        for(let key in glyphs){
+            let glyph = glyphs[key];
+            let {x,y,width,height,texture,advance,page,channel}=glyph;
+            str += `char id=${key.charCodeAt()} x=${x} y=${y} width=${width} height=${height} xoffset=${texture.offset.x} yoffset=${texture.offset.y} xadvance=${advance} page=${page||0} chnl=${channel}\n`
+        }
     }else{
         str += `info creator=UIBuilder\ncommon lineHeight=${lineHeight}\n`;
         for(let key in glyphs){
@@ -233,6 +241,8 @@ function parseFont(font){
             // let {x,y,width,height,xoffset,yoffset,xadvance,page,channel}=glyph;
         }
     }
+    console.log(str);
+    return str;
 }
 
 function decodeUncompressed(buf) {
