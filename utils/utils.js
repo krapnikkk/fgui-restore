@@ -7,6 +7,10 @@ const uuidv4 = () => {
     });
 }
 
+const ascii2Str = (num) => {
+    return String.fromCharCode(num);
+}
+
 const exists = (path) => {
     return fs.existsSync(path);
 }
@@ -41,4 +45,5 @@ module.exports.xml2json = xml2json;
 module.exports.json2xml = json2xml;
 module.exports.exists = exists;
 module.exports.uuidv4 = uuidv4;
+module.exports.ascii2Str = ascii2Str;
 module.exports.getItemById = getItemById;

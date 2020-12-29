@@ -3,7 +3,7 @@ const zlib = require("zlib");
 const Jimp = require('jimp');
 const ByteArray = require('./ByteArray');
 const { resolve } = require('path');
-const { exists, xml2json, json2xml, getItemById } = require('./utils/utils');
+const { exists, xml2json, json2xml, getItemById,ascii2Str } = require('./utils/utils');
 const { createMovieClip } = require('./build/create');
 
 
@@ -82,7 +82,8 @@ const createByPackage = async (pkgData) => {
 const createByPackage2 = async (pkgData) => {
     // 处理package.xml 获取包名&id
     const packageData = pkgData["package.xml"];
-
+    const sprites = pkgData['sprites.bytes'];
+    const files = pkgData['files'];
     // 校验纹理合图是否存在同一目录
     let atlasInfo = packageData["packageDescription"]['resources']['atlas'];
     // handleAltas(atlasInfo);
@@ -105,7 +106,7 @@ const createByPackage2 = async (pkgData) => {
     fontInfo.forEach((item) => {
         let font = item['$'];
         let file = `${font['id']}.fnt`;
-        font['content'] = encodeFontData(font['id']);
+        font['content'] = decodeFontData(font['id'], sprites, files);
         fontMap[file] = font;
     })
     createFileByData(fontMap, '.fnt');
@@ -130,15 +131,15 @@ const createByPackage2 = async (pkgData) => {
         componentMap[file] = component;
     })
     createFileByData(componentMap, ".xml");
-    let path = resolve(tempPath);
-    let files = fs.readdirSync(path);
-    files.forEach((file) => {
-        fs.unlinkSync(path + '/' + file);
-    });
-    fs.rmdirSync(path);
+    // let path = resolve(tempPath);
+    // let files = fs.readdirSync(path);
+    // files.forEach((file) => {
+    //     fs.unlinkSync(path + '/' + file);
+    // });
+    // fs.rmdirSync(path);
 }
 
-function encodeFontData(id) {
+function decodeFontData(id, sprites, files) {
     let rawData = fontRawDataMap[id], pi = {};
     rawData.seek(0, 0);
     pi.font = { glyphs: [] };
@@ -147,15 +148,15 @@ function encodeFontData(id) {
     pi.font.resizable = rawData.readBool();
     pi.font.hasChannel = rawData.readBool();
     pi.font.size = rawData.readInt();
-    let xadvance = rawData.readInt();
-    let lineHeight = rawData.readInt();
+    pi.font.xadvance = rawData.readInt();
+    pi.font.lineHeight = rawData.readInt();
 
     rawData.seek(0, 1);
 
     var mainTexture;
-    let mainSprite = _sprites[id];
-    if (mainSprite)
-        mainTexture = this.getItemAsset(mainSprite.atlas);
+    let mainSprite = sprites[id];
+    // if (mainSprite)
+    //     mainTexture = mainSprite.atlas;
 
     let charCnt = rawData.readInt();
     for (let j = 0; j < charCnt; j++) {
@@ -183,40 +184,55 @@ function encodeFontData(id) {
             bg.channel = 1;
 
         if (pi.font.ttf) { // face
-            bg.texture = {};
-            bg.texture.bitmapData = mainTexture.bitmapData;
-            bg.texture.$initData(mainTexture.$bitmapX + bx + mainSprite.rect.x, mainTexture.$bitmapY + by + mainSprite.rect.y,
-                bg.width, bg.height,
-                mainSprite.offset.x, mainSprite.offset.y,
-                mainSprite.originalSize.x, mainSprite.originalSize.y,
-                mainTexture.$sourceWidth, mainTexture.$sourceHeight,
-                mainSprite.rotated);
-
-            bg.lineHeight = lineHeight;
+            // bg.texture = {};
+            mainSprite.rect.x += bx;
+            mainSprite.rect.y += by;
+            bg.texture = mainSprite;
+            bg.lineHeight = pi.font.lineHeight;
         }
         else { // creator=UIBuilder
-            let charImg = getItemById(_itemMap, img);
+            let charImg = getItemById(files, img);
             if (charImg) {
                 // this.getItemAsset(charImg);
+                mainTexture = sprites[charImg.id];
                 bg.width = charImg.width;
                 bg.height = charImg.height;
-                // bg.texture = charImg.asset;
+                bg.texture = charImg.id;
+                let {x,y} = mainTexture.offset;
+                bg.xoffset = x;
+                bg.yoffset = y;
             }
 
             if (bg.advance == 0) {
-                if (xadvance == 0)
+                if (pi.font.xadvance == 0)
                     bg.advance = bg.x + bg.width;
                 else
-                    bg.advance = xadvance;
+                    bg.advance = pi.font.xadvance;
             }
 
             bg.lineHeight = bg.y < 0 ? bg.height : (bg.y + bg.height);
             if (bg.lineHeight < pi.font.size)
                 bg.lineHeight = pi.font.size;
         }
-        buffer.position = nextPosition;
+        // buffer.position = nextPosition;
     }
     console.log(pi.font.glyphs);
+    return parseFont(pi.font);
+}
+
+function parseFont(font){
+    console.log(font);
+    let str='';
+    let {lineHeight,glyphs}= font;
+    if(font.ttf){
+
+    }else{
+        str += `info creator=UIBuilder\ncommon lineHeight=${lineHeight}\n`;
+        for(let key in glyphs){
+            let glyph = glyphs[key];
+            // let {x,y,width,height,xoffset,yoffset,xadvance,page,channel}=glyph;
+        }
+    }
 }
 
 function decodeUncompressed(buf) {
