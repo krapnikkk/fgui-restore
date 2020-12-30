@@ -9,7 +9,8 @@ const createEntryFile = (path, file) => {
 
 const createMovieClip = async (data, srcImageInput, output) => {
     let { content, id, size } = data;
-    let movieclipData = await xml2json(content);
+    let flag = typeof content === "string"
+    let movieclipData = flag ? await xml2json(content) : content;
     let width = size.split(',')[0];
     let height = size.split(',')[0];
     let { interval, swing, repeatDelay } = movieclipData["movieclip"]['$'];

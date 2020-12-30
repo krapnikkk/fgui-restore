@@ -16,7 +16,9 @@ let importFileName = "Basics",
     tempPath = `${outputPath}${importFileName}${temp}`,
     pkgName = "",
     pkgId = "",
-    fontRawDataMap = {};
+    fontRawDataMap = {},
+    mcRawDataMap = {},
+    componentMap = {};
 
 const createByPackage = async (pkgData) => {
     // 处理package.xml 获取包名&id
@@ -109,19 +111,18 @@ const createByPackage2 = async (pkgData) => {
         font['content'] = decodeFontData(font['id'], sprites, files);
         fontMap[file] = font;
     })
-    createFileByData(fontMap, '');
-    debugger
-    return
+    // createFileByData(fontMap, '');
+
     let movieclipInfo = packageData["packageDescription"]['resources']['movieclip'];
     let movieclipMap = {};
     movieclipInfo.forEach((item) => {
         let movieclip = item['$'];
-        let file = `${movieclip['id']}.xml`;
-        movieclip['content'] = pkgData[file];
-        delete pkgData[file];
-        movieclipMap[file] = movieclip;
+        let { id } = movieclip;
+        // let file = `${movieclip['id']}.xml`;
+        // movieclip['content'] = pkgData[file];
+        movieclip['content'] = decodeMovieclipData(id, sprites, files);
+        movieclipMap[id] = movieclip;
     })
-
     await handleMovieclip(movieclipMap);
 
     let componentInfo = packageData["packageDescription"]['resources']['component'];
@@ -166,12 +167,12 @@ function decodeFontData(id, sprites, files) {
         nextPosition += rawData.pos;
 
         let bg = {};
-        let ch = rawData.readChar();
+        let ch = rawData.readChar() || " ";
         pi.font.glyphs[ch] = bg;
 
         let img = rawData.readS();
-        let bx = rawData.readInt();
-        let by = rawData.readInt();
+        bg.bx = rawData.readInt();
+        bg.by = rawData.readInt();
         bg.x = rawData.readInt();
         bg.y = rawData.readInt();
         bg.width = rawData.readInt();
@@ -186,21 +187,17 @@ function decodeFontData(id, sprites, files) {
             bg.channel = 1;
 
         if (pi.font.ttf) { // face
-            // bg.texture = {};
-            mainSprite.rect.x += bx;
-            mainSprite.rect.y += by;
             bg.texture = mainSprite;
             bg.lineHeight = pi.font.lineHeight;
         }
         else { // creator=UIBuilder
             let charImg = getItemById(files, img);
             if (charImg) {
-                // this.getItemAsset(charImg);
                 mainTexture = sprites[charImg.id];
                 bg.width = charImg.width;
                 bg.height = charImg.height;
                 bg.texture = charImg.id;
-                let {x,y} = mainTexture.offset;
+                let { x, y } = mainTexture.offset;
                 bg.xoffset = x;
                 bg.yoffset = y;
             }
@@ -216,32 +213,96 @@ function decodeFontData(id, sprites, files) {
             if (bg.lineHeight < pi.font.size)
                 bg.lineHeight = pi.font.size;
         }
-        // buffer.position = nextPosition;
+        rawData.pos = nextPosition;
     }
-    // console.log(pi.font.glyphs);
     return parseFont(pi.font);
 }
 
-function parseFont(font){
-    console.log(font);
-    let str='';
-    let {lineHeight,glyphs}= font;
-    // todo complete font
-    if(font.ttf){
-        str += `info creator=UIBuilder\ncommon lineHeight=${lineHeight}\n`;
-        for(let key in glyphs){
-            let glyph = glyphs[key];
-            let {x,y,width,height,texture,advance,page,channel}=glyph;
-            str += `char id=${key.charCodeAt()} x=${x} y=${y} width=${width} height=${height} xoffset=${texture.offset.x} yoffset=${texture.offset.y} xadvance=${advance} page=${page||0} chnl=${channel}\n`
+function decodeMovieclipData(id, _sprites, files) {
+    let rawData = mcRawDataMap[id], pi = {};
+
+    rawData.seek(0, 0);
+
+    let interval = rawData.readInt();
+    let swing = rawData.readBool();
+    let repeatDelay = rawData.readInt();
+
+    rawData.seek(0, 1);
+
+    var frameCount = rawData.readShort();
+    pi.frames = frameCount;
+
+    // var spriteId;
+    // var sprite;
+    let movieclip = {
+        "movieclip": {
+            "$": {
+                interval,
+                swing,
+                repeatDelay
+            },
+            "frames": {
+                "frame": []
+            }
         }
-    }else{
+    };
+
+    for (var i = 0; i < frameCount; i++) {
+        var nextPos = rawData.readShort();
+        nextPos += rawData.pos;
+
+        let frame = {};
+        let x = rawData.readInt();
+        let y = rawData.readInt();
+        let width = rawData.readInt();//width
+        let height = rawData.readInt();//height
+        let rect = `${x},${y},${width},${height}`;
+        frame.rect = rect;
+        let addDelay = rawData.readInt();
+        if (addDelay) { frame.addDelay = addDelay };
+        movieclip['movieclip']['frames']['frame'].push({ "$": frame });
+        // spriteId = rawData.readS();
+
+        // if (spriteId != null && (sprite = _sprites[spriteId]) != null) {
+        // var atlas = this.getItemAsset(sprite.atlas);
+        // frame.texture = new egret.Texture();
+        // frame.texture.bitmapData = atlas.bitmapData;
+        // frame.texture.$initData(atlas.$bitmapX + sprite.rect.x, atlas.$bitmapY + sprite.rect.y,
+        //     sprite.rect.width, sprite.rect.height,
+        //     fx, fy,
+        //     item.width, item.height,
+        //     atlas.$sourceWidth, atlas.$sourceHeight, sprite.rotated);
+        // }
+        pi.frames[i] = frame;
+
+        rawData.pos = nextPos;
+    }
+    return movieclip;
+}
+
+function decodeComponent(id,files){
+
+}
+
+function parseFont(font) {
+    let str = '';
+    let { lineHeight, glyphs } = font;
+    // todo complete font
+    if (font.ttf) {
         str += `info creator=UIBuilder\ncommon lineHeight=${lineHeight}\n`;
-        for(let key in glyphs){
+        for (let key in glyphs) {
             let glyph = glyphs[key];
-            // let {x,y,width,height,xoffset,yoffset,xadvance,page,channel}=glyph;
+            let { x, y, width, height, advance, page, bx, by, channel } = glyph;
+            str += `char id=${key.charCodeAt()} x=${bx} y=${by} width=${width} height=${height} xoffset=${x} yoffset=${y} xadvance=${advance} page=${page || 0} chnl=${channel}\n`
+        }
+    } else {
+        str += `info creator=UIBuilder\ncommon lineHeight=${lineHeight}\n`;
+        for (let key in glyphs) {
+            let glyph = glyphs[key];
+            let { x, y, texture, advance } = glyph;
+            str += `char id=${key.charCodeAt()} img=${texture} xoffset=${x} yoffset=${y} xadvance=${advance}\n`
         }
     }
-    console.log(str);
     return str;
 }
 
@@ -366,13 +427,13 @@ function decodeBinary(buffer) {
                 {
                     pi.smoothing = buffer.readBool();
                     pi.objectType = 1; // MovieClip;
-                    pi.rawData = buffer.readBuffer();
+                    mcRawDataMap[pi.id] = buffer.readBuffer();
                     break;
                 }
 
             case 5: // Font:
                 {
-                    fontRawDataMap[pi.id] = buffer.readBuffer();//
+                    fontRawDataMap[pi.id] = buffer.readBuffer();
                     // pi.rawData = buffer.readBuffer();
                     break;
                 }
@@ -384,8 +445,8 @@ function decodeBinary(buffer) {
                         pi.objectType = extension;
                     else
                         pi.objectType = 9; // Component;
-                    pi.rawData = buffer.readBuffer();
-
+                    // pi.rawData = buffer.readBuffer();
+                    componentMap[pi.id] = buffer.readBuffer();
                     // Decls.UIObjectFactory.resolveExtension(pi);
                     break;
                 }
@@ -728,7 +789,7 @@ const handlePackageData2 = (pkgData) => {
     let atlas = pkgXmlData['packageDescription']['resources']['atlas'];
 
     data.forEach((element) => {
-        let { type, id, name, path, size, exported, file, smoothing } = element;
+        let { type, id, name, path, size, exported, file, smoothing, width, height } = element;
         let item = {
             "$": {
 
@@ -755,6 +816,7 @@ const handlePackageData2 = (pkgData) => {
                 break;
             case 1:
                 item['$']['name'] = item['$']['name'] + '.jta';
+                item['$']['size'] = `${width},${height}`
                 movieclips.push(item);
                 break;
             case 2:

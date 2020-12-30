@@ -28,7 +28,7 @@ fgui-cli restore [fileName]
  - 将碎图和package.xml关联绑定
  - 将组件xml和package.xml关联绑定
  - 将动画Movieclip还原成jta文件【动画设置以帧频：24为基准进行还原】
- - 将位图字体文件还原成fnt文件
+ - 将位图字体文件还原成fnt文件【二进制格式资源包统一还原成UIBuilder默认格式】
  
   
 ### 无法还原项
