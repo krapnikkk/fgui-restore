@@ -5,6 +5,7 @@ const ByteArray = require('./ByteArray');
 const { resolve } = require('path');
 const { exists, xml2json, json2xml, getItemById } = require('./utils/utils');
 const { createMovieClip } = require('./build/create');
+const { type } = require('os');
 
 
 const XMLHeader = '<?xml version="1.0" encoding="utf-8"?>\n';
@@ -16,6 +17,7 @@ let importFileName = "Basics",
     tempPath = `${outputPath}${importFileName}${temp}`,
     pkgName = "",
     pkgId = "",
+    UIPackage = {},
     fontRawDataMap = {},
     mcRawDataMap = {},
     componentMap = {};
@@ -281,19 +283,24 @@ function decodeMovieclipData(id, _sprites, files) {
     return movieclip;
 }
 
-function decodeComponent(id, files) {
-    let rawData = componentMap[id], pi = {};
+function decodeComponent(id) {
+    let rawData = componentMap[id];
+    decodeComponent2(rawData)
+}
+
+function decodeComponent2(rawData) {
+    let pi = { "children": [] };
     rawData.seek(0, 0);
 
     pi._underConstruct = true;
 
+    // size
     pi.sourceWidth = rawData.readInt();
     pi.sourceHeight = rawData.readInt();
-    pi.initWidth = pi.sourceWidth;
-    pi.initHeight = pi.sourceHeight;
 
     // pi.setSize(pi.sourceWidth, pi.sourceHeight);
 
+    // restrictSize
     if (rawData.readBool()) {
         pi.minWidth = rawData.readInt();
         pi.maxWidth = rawData.readInt();
@@ -301,12 +308,14 @@ function decodeComponent(id, files) {
         pi.maxHeight = rawData.readInt();
     }
 
+    // pivot
     if (rawData.readBool()) {
         f1 = rawData.readFloat();
         f2 = rawData.readFloat();
-        pi.internalSetPivot(f1, f2, rawData.readBool());
+        // pi.internalSetPivot(f1, f2, rawData.readBool());
     }
 
+    // margin
     if (rawData.readBool()) {
         pi._margin.top = rawData.readInt();
         pi._margin.bottom = rawData.readInt();
@@ -314,15 +323,20 @@ function decodeComponent(id, files) {
         pi._margin.right = rawData.readInt();
     }
 
+    // overflow
+    // export enum OverflowType {
+    //     Visible,
+    //     Hidden,
+    //     Scroll
+    // }
     var overflow = rawData.readByte();
-    if (overflow == OverflowType.Scroll) {
+    if (overflow == 2) { // 2
         var savedPos = rawData.pos;
         rawData.seek(0, 7);
         pi.setupScroll(rawData);
         rawData.pos = savedPos;
     }
-    else
-        pi.setupOverflow(overflow);
+
 
     if (rawData.readBool())
         rawData.skip(8);
@@ -331,16 +345,17 @@ function decodeComponent(id, files) {
 
     rawData.seek(0, 1);
 
+    //controller
     var controllerCount = rawData.readShort();
+    pi.controllers = [];
     for (i = 0; i < controllerCount; i++) {
         nextPos = rawData.readShort();
         nextPos += rawData.pos;
 
-        var controller = {};
-        pi._controllers.push(controller);
-        controller.parent = pi;
-        controller.setup(rawData);
-
+        // controller.parent = pi;
+        // controller.setup(rawData);
+        let controller = decodeController(rawData);
+        pi.controllers.push(controller);
         rawData.pos = nextPos;
     }
 
@@ -349,42 +364,41 @@ function decodeComponent(id, files) {
     var child;
     var childCount = rawData.readShort();
     for (i = 0; i < childCount; i++) {
-        dataLen = rawData.readShort();
+        let dataLen = rawData.readShort();
         curPos = rawData.pos;
 
-        if (objectPool)
-            child = objectPool[poolIndex + i];
-        else {
-            rawData.seek(curPos, 0);
 
-            var type = rawData.readByte();
-            var src= rawData.readS();
-            var pkgId= rawData.readS();
+        rawData.seek(curPos, 0);
 
-            // var pi = null;
+        let type = rawData.readByte();
+        pi.src = rawData.readS();
+        pi.pkgId = rawData.readS();
 
-            // if (src != null) {
-            //     var pkg;
-            //     if (pkgId != null)
-            //         pkg = UIPackage.getById(pkgId);
-            //     else
-            //         pkg = contentItem.owner;
+        // var pi = null;
 
-            //     pi = pkg ? pkg.getItemById(src) : null;
-            // }
+        // if (src != null) {
+        //     var pkg;
+        //     if (pkgId != null)
+        //         pkg = UIPackage.getById(pkgId);
+        //     else
+        //         pkg = contentItem.owner;
 
-            // if (pi) {
-            //     child = UIObjectFactory.newObject(pi);
-            //     child.constructFromResource();
-            // }
-            // else
-            //     child = UIObjectFactory.newObject(type);
-        }
+        //     pi = pkg ? pkg.getItemById(src) : null;
+        // }
 
-        child._underConstruct = true;
-        child.setup_beforeAdd(rawData, curPos);
-        child.parent = pi;
-        pi._children.push(child);
+        // if (pi) {
+        //     child = UIObjectFactory.newObject(pi);
+        //     child.constructFromResource();
+        // }
+        // else
+        //     child = UIObjectFactory.newObject(type);
+
+
+        // child._underConstruct = true;
+        // child.setup_beforeAdd(rawData, curPos);
+        child.content = decodeNewObject(type, rawData, curPos)
+        // child.parent = pi;
+        pi.children.push(child);
 
         rawData.pos = curPos + dataLen;
     }
@@ -400,7 +414,7 @@ function decodeComponent(id, files) {
         nextPos += rawData.pos;
 
         rawData.seek(rawData.pos, 3);
-        pi._children[i].relations.setup(rawData, false);
+        pi.children[i].relations.setup(rawData, false);
 
         rawData.pos = nextPos;
     }
@@ -428,7 +442,7 @@ function decodeComponent(id, files) {
         pi.mask = pi.getChildAt(maskId).displayObject;
         pi.reversedMask = rawData.readBool(); //reversedMask
     }
-    var hitTestId= rawData.readS();
+    var hitTestId = rawData.readS();
     i1 = rawData.readInt();
     i2 = rawData.readInt();
     if (hitTestId != null) {
@@ -528,6 +542,236 @@ function decodeUncompressed(buf) {
         pos += 46 + len + len2;
     }
     return data;
+}
+
+function decodeController(buffer) {
+    var controller = {
+        "pageIds": [],
+        "pageNames": [],
+        "selectedIndex": []
+    };
+    var beginPos = buffer.pos;
+    buffer.seek(beginPos, 0);
+
+    controller.name = buffer.readS();
+    if (buffer.readBool()) // autoRadioGroupDepth
+        controller.autoRadioGroupDepth = true;
+
+    buffer.seek(beginPos, 1);
+
+    var i;
+    var nextPos;
+    var cnt = buffer.readShort();
+
+    for (i = 0; i < cnt; i++) {
+        controller.pageIds.push(buffer.readS());
+        controller.pageNames.push(buffer.readS());
+    }
+
+    var homePageIndex = 0;
+    if (buffer.version >= 2) {
+        var homePageType = buffer.readByte();
+        switch (homePageType) {
+            case 1: // "specific"
+                homePageIndex = buffer.readShort();
+                break;
+
+            case 2: // "branch"
+                homePageIndex = controller.pageNames.indexOf(UIPackage.branch);
+                if (homePageIndex == -1)
+                    homePageIndex = 0;
+                break;
+
+            case 3: // "variable"
+                // todo
+                homePageIndex = controller.pageNames.indexOf(UIPackage.getVar(buffer.readS()));
+                if (homePageIndex == -1)
+                    homePageIndex = 0;
+                break;
+        }
+    }
+
+    buffer.seek(beginPos, 2);
+
+    cnt = buffer.readShort();
+    if (cnt > 0) {
+        if (!controller.actions)
+            controller.actions = [];
+
+        for (i = 0; i < cnt; i++) {
+            nextPos = buffer.readShort();
+            nextPos += buffer.pos;
+            let type = buffer.readByte();
+            let action = {};
+            let count = buffer.readShort();
+            action.fromPage = [];
+            for (i = 0; i < count; i++)
+                action.fromPage[i] = buffer.readS();
+
+            count = buffer.readShort();
+            action.toPage = [];
+            for (i = 0; i < count; i++)
+                action.toPage[i] = buffer.readS();
+            if (type == 0) { // PlayTransitionAction
+                action.transitionName = buffer.readS();
+                action.playTimes = buffer.readInt();
+                action.delay = buffer.readFloat();
+                action.stopOnExit = buffer.readBool();
+            } else if (type == 1) { // ChangePageAction
+                action.objectId = buffer.readS();
+                action.controllerName = buffer.readS();
+                action.targetPage = buffer.readS();
+            }
+            controller.actions.push(action);
+
+            buffer.pos = nextPos;
+        }
+    }
+
+    if (controller.pageIds.length > 0)
+        controller.selectedIndex = homePageIndex;
+    else
+        controller.selectedIndex = -1;
+    return controller;
+}
+
+function decodeNewObject(type, buffer, position) {
+    if (typeof type === 'number') {
+        switch (type) {
+            case 0: // Image
+                return new GImage();
+
+            case 1: // MovieClip
+                return new GMovieClip();
+
+            case 2: // Component
+                let component = decodeComponent2(buffer);
+                return component;
+
+            case 3: // Text
+                return new GTextField();
+
+            case 4: // RichText
+                return new GRichTextField();
+
+            case ObjectType.InputText:
+                return new GTextInput();
+
+            case ObjectType.Group:
+                return new GGroup();
+
+            case ObjectType.List:
+                return new GList();
+
+            case ObjectType.Graph:
+                return new GGraph();
+
+            case ObjectType.Loader:
+                if (UIObjectFactory.loaderType)
+                    return new UIObjectFactory.loaderType();
+                else
+                    return new GLoader();
+
+            case ObjectType.Button:
+                return new GButton();
+
+            case ObjectType.Label:
+                return new GLabel();
+
+            case ObjectType.ProgressBar:
+                return new GProgressBar();
+
+            case ObjectType.Slider:
+                return new GSlider();
+
+            case ObjectType.ScrollBar:
+                return new GScrollBar();
+
+            case ObjectType.ComboBox:
+                return new GComboBox();
+
+            case ObjectType.Tree:
+                return new GTree();
+
+            case ObjectType.Loader3D:
+                return new GLoader3D();
+
+            default:
+                return null;
+        }
+    }
+}
+
+function decodeGObject(buffer, position) {
+    let data = {};
+    buffer.seek(beginPos, 0);
+    buffer.skip(5);
+
+    var f1;
+    var f2;
+
+    data._id = buffer.readS();
+    data._name = buffer.readS();
+    f1 = buffer.readInt();
+    f2 = buffer.readInt();
+    data.setXY(f1, f2);
+
+    if (buffer.readBool()) {
+        data.initWidth = buffer.readInt();
+        data.initHeight = buffer.readInt();
+        data.setSize(data.initWidth, data.initHeight, true);
+    }
+
+    if (buffer.readBool()) {
+        data.minWidth = buffer.readInt();
+        data.maxWidth = buffer.readInt();
+        data.minHeight = buffer.readInt();
+        data.maxHeight = buffer.readInt();
+    }
+
+    if (buffer.readBool()) {
+        f1 = buffer.readFloat();
+        f2 = buffer.readFloat();
+    }
+
+    if (buffer.readBool()) {
+        f1 = buffer.readFloat();
+        f2 = buffer.readFloat();
+    }
+
+    if (buffer.readBool()) {
+        f1 = buffer.readFloat();
+        f2 = buffer.readFloat();
+    }
+
+    f1 = buffer.readFloat();
+    if (f1 != 1)
+        data.alpha = f1;
+
+    f1 = buffer.readFloat();
+    if (f1 != 0)
+        data.rotation = f1;
+
+    if (!buffer.readBool())
+        data.visible = false;
+    if (!buffer.readBool())
+        data.touchable = false;
+    if (buffer.readBool())
+        data.grayed = true;
+    var bm = buffer.readByte();
+    if (bm == 2)
+        data.blendMode = egret.BlendMode.ADD;
+    else if (bm == 5)
+        data.blendMode = egret.BlendMode.ERASE;
+
+    var filter = buffer.readByte();
+    if (filter == 1 && data._displayObject)
+        ToolSet.setColorFilter(data._displayObject,
+            [buffer.readFloat(), buffer.readFloat(), buffer.readFloat(), buffer.readFloat()]);
+
+    var str = buffer.readS();
+    if (str != null)
+        data.data = str;
 }
 
 function decodeBinary(buffer) {

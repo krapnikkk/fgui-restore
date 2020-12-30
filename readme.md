@@ -44,7 +44,7 @@ fgui-cli restore [fileName]
  - .fnt
  - .jta
 
-## 解析流程
+## xml解析流程
  - 解析发布出来的资源文件
  - 根据文件格式版本分布解析二进制和压缩描述文件
  - 将发布的资源文件解析还原为xml
@@ -52,6 +52,15 @@ fgui-cli restore [fileName]
  - 【movieclip】packageDescription.resources[0].movieclip
  - 【sound】packageDescription.resources[0].sound
 
+## 二进制格式解析流程
+ - createObject 【UIPackage】
+ - constructFromResource【component】
+ - controller.setup【controller】
+ - setup_beforeAdd 【component child】
+ - relations.setup【relations】
+ - setup_afterAdd 【component child】
+ - trans.setupp 【transion】
+ - constructExtension 【extension】
 
 ## 细节优化
  - 是否显示调试结果
