@@ -123,14 +123,15 @@ const createByPackage2 = async (pkgData) => {
         movieclip['content'] = decodeMovieclipData(id, sprites, files);
         movieclipMap[id] = movieclip;
     })
-    await handleMovieclip(movieclipMap);
+    // await handleMovieclip(movieclipMap);
 
     let componentInfo = packageData["packageDescription"]['resources']['component'];
     let componentMap = {};
     componentInfo.forEach((item) => {
         let component = item['$'];
-        let file = `${component['id']}.xml`;
-        component['content'] = pkgData[file];
+        let { id } = component;
+        // let file = `${component['id']}.xml`;
+        component['content'] = decodeComponent(id, files);
         componentMap[file] = component;
     })
     createFileByData(componentMap, ".xml");
@@ -280,8 +281,196 @@ function decodeMovieclipData(id, _sprites, files) {
     return movieclip;
 }
 
-function decodeComponent(id,files){
+function decodeComponent(id, files) {
+    let rawData = componentMap[id], pi = {};
+    rawData.seek(0, 0);
 
+    pi._underConstruct = true;
+
+    pi.sourceWidth = rawData.readInt();
+    pi.sourceHeight = rawData.readInt();
+    pi.initWidth = pi.sourceWidth;
+    pi.initHeight = pi.sourceHeight;
+
+    // pi.setSize(pi.sourceWidth, pi.sourceHeight);
+
+    if (rawData.readBool()) {
+        pi.minWidth = rawData.readInt();
+        pi.maxWidth = rawData.readInt();
+        pi.minHeight = rawData.readInt();
+        pi.maxHeight = rawData.readInt();
+    }
+
+    if (rawData.readBool()) {
+        f1 = rawData.readFloat();
+        f2 = rawData.readFloat();
+        pi.internalSetPivot(f1, f2, rawData.readBool());
+    }
+
+    if (rawData.readBool()) {
+        pi._margin.top = rawData.readInt();
+        pi._margin.bottom = rawData.readInt();
+        pi._margin.left = rawData.readInt();
+        pi._margin.right = rawData.readInt();
+    }
+
+    var overflow = rawData.readByte();
+    if (overflow == OverflowType.Scroll) {
+        var savedPos = rawData.pos;
+        rawData.seek(0, 7);
+        pi.setupScroll(rawData);
+        rawData.pos = savedPos;
+    }
+    else
+        pi.setupOverflow(overflow);
+
+    if (rawData.readBool())
+        rawData.skip(8);
+
+    pi._buildingDisplayList = true;
+
+    rawData.seek(0, 1);
+
+    var controllerCount = rawData.readShort();
+    for (i = 0; i < controllerCount; i++) {
+        nextPos = rawData.readShort();
+        nextPos += rawData.pos;
+
+        var controller = {};
+        pi._controllers.push(controller);
+        controller.parent = pi;
+        controller.setup(rawData);
+
+        rawData.pos = nextPos;
+    }
+
+    rawData.seek(0, 2);
+
+    var child;
+    var childCount = rawData.readShort();
+    for (i = 0; i < childCount; i++) {
+        dataLen = rawData.readShort();
+        curPos = rawData.pos;
+
+        if (objectPool)
+            child = objectPool[poolIndex + i];
+        else {
+            rawData.seek(curPos, 0);
+
+            var type = rawData.readByte();
+            var src= rawData.readS();
+            var pkgId= rawData.readS();
+
+            // var pi = null;
+
+            // if (src != null) {
+            //     var pkg;
+            //     if (pkgId != null)
+            //         pkg = UIPackage.getById(pkgId);
+            //     else
+            //         pkg = contentItem.owner;
+
+            //     pi = pkg ? pkg.getItemById(src) : null;
+            // }
+
+            // if (pi) {
+            //     child = UIObjectFactory.newObject(pi);
+            //     child.constructFromResource();
+            // }
+            // else
+            //     child = UIObjectFactory.newObject(type);
+        }
+
+        child._underConstruct = true;
+        child.setup_beforeAdd(rawData, curPos);
+        child.parent = pi;
+        pi._children.push(child);
+
+        rawData.pos = curPos + dataLen;
+    }
+
+    rawData.seek(0, 3);
+    pi.relations.setup(rawData, true);
+
+    rawData.seek(0, 2);
+    rawData.skip(2);
+
+    for (i = 0; i < childCount; i++) {
+        nextPos = rawData.readShort();
+        nextPos += rawData.pos;
+
+        rawData.seek(rawData.pos, 3);
+        pi._children[i].relations.setup(rawData, false);
+
+        rawData.pos = nextPos;
+    }
+
+    rawData.seek(0, 2);
+    rawData.skip(2);
+
+    for (i = 0; i < childCount; i++) {
+        nextPos = rawData.readShort();
+        nextPos += rawData.pos;
+
+        child = pi._children[i];
+        child.setup_afterAdd(rawData, rawData.pos);
+        child._underConstruct = false;
+
+        rawData.pos = nextPos;
+    }
+
+    rawData.seek(0, 4);
+
+    rawData.skip(2); //customData
+    pi.opaque = rawData.readBool();
+    var maskId = rawData.readShort();
+    if (maskId != -1) {
+        pi.mask = pi.getChildAt(maskId).displayObject;
+        pi.reversedMask = rawData.readBool(); //reversedMask
+    }
+    var hitTestId= rawData.readS();
+    i1 = rawData.readInt();
+    i2 = rawData.readInt();
+    if (hitTestId != null) {
+        pi = contentItem.owner.getItemById(hitTestId);
+        if (pi && pi.pixelHitTestData)
+            pi._rootContainer.hitArea = new PixelHitTest(pi.pixelHitTestData, i1, i2);
+    }
+    else if (i1 != 0 && i2 != -1) {
+        pi._rootContainer.hitArea = pi.getChildAt(i2).displayObject;
+    }
+
+    rawData.seek(0, 5);
+
+    var transitionCount = rawData.readShort();
+    for (i = 0; i < transitionCount; i++) {
+        nextPos = rawData.readShort();
+        nextPos += rawData.pos;
+
+        var trans = new Transition(pi);
+        trans.setup(rawData);
+        pi._transitions.push(trans);
+
+        rawData.pos = nextPos;
+    }
+
+    if (pi._transitions.length > 0) {
+        pi.displayObject.addEventListener(egret.Event.ADDED_TO_STAGE, pi.___added, pi);
+        pi.displayObject.addEventListener(egret.Event.REMOVED_FROM_STAGE, pi.___removed, pi);
+    }
+
+    pi.applyAllControllers();
+
+    pi._buildingDisplayList = false;
+    pi._underConstruct = false;
+
+    pi.buildNativeDisplayList();
+    pi.setBoundsChangedFlag();
+
+    if (contentItem.objectType != ObjectType.Component)
+        pi.constructExtension(rawData);
+
+    pi.onConstruct();
 }
 
 function parseFont(font) {
