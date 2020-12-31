@@ -5,7 +5,6 @@ const ByteArray = require('./ByteArray');
 const { resolve } = require('path');
 const { exists, xml2json, json2xml, getItemById } = require('./utils/utils');
 const { createMovieClip } = require('./build/create');
-const { type } = require('os');
 
 
 const XMLHeader = '<?xml version="1.0" encoding="utf-8"?>\n';
@@ -636,6 +635,8 @@ function decodeController(buffer) {
 }
 
 function decodeNewObject(type, buffer, position) {
+    let data = decodeGObject(buffer,position);
+    console.log(data);
     if (typeof type === 'number') {
         switch (type) {
             case 0: // Image
@@ -704,7 +705,7 @@ function decodeNewObject(type, buffer, position) {
 
 function decodeGObject(buffer, position) {
     let data = {};
-    buffer.seek(beginPos, 0);
+    buffer.seek(position, 0);
     buffer.skip(5);
 
     var f1;
@@ -714,12 +715,11 @@ function decodeGObject(buffer, position) {
     data._name = buffer.readS();
     f1 = buffer.readInt();
     f2 = buffer.readInt();
-    data.setXY(f1, f2);
 
     if (buffer.readBool()) {
         data.initWidth = buffer.readInt();
         data.initHeight = buffer.readInt();
-        data.setSize(data.initWidth, data.initHeight, true);
+        // data.setSize(data.initWidth, data.initHeight, true);
     }
 
     if (buffer.readBool()) {
@@ -772,6 +772,8 @@ function decodeGObject(buffer, position) {
     var str = buffer.readS();
     if (str != null)
         data.data = str;
+
+    return data;
 }
 
 function decodeBinary(buffer) {

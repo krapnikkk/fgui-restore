@@ -56,9 +56,9 @@ fgui-cli restore [fileName]
  - createObject 【UIPackage】
  - constructFromResource【component】
  - controller.setup【controller】
- - setup_beforeAdd 【component child】
+ - setup_beforeAdd 【component-child-GObject】
  - relations.setup【relations】
- - setup_afterAdd 【component child】
+ - setup_afterAdd 【component-child-GObject】
  - trans.setupp 【transion】
  - constructExtension 【extension】
 
