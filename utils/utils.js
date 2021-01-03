@@ -41,9 +41,29 @@ const json2xml = (json) => {
     return builder.buildObject(json);
 }
 
+const rgbaToHex = (str,alpha = true) => {
+    const colorArr = str.match(/(0\.)?\d+/g);
+    const color = colorArr.map((ele, index, array) => {
+        if (index === array.length - 1 && alpha) {    
+            let opacity = (ele * 100 * 255) / 100;
+            return Math.round(opacity)
+                .toString(16)
+                .padEnd(2, "0");
+        }
+        return Number.parseFloat(ele)
+            .toString(16)
+            .padStart(2, "0");
+    });
+    if(alpha){
+        color.unshift(color.pop());// argb
+    }
+    return `#${color.join("")}`;
+}
+
 module.exports.xml2json = xml2json;
 module.exports.json2xml = json2xml;
 module.exports.exists = exists;
 module.exports.uuidv4 = uuidv4;
 module.exports.ascii2Str = ascii2Str;
 module.exports.getItemById = getItemById;
+module.exports.rgbaToHex = rgbaToHex;

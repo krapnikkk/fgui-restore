@@ -130,7 +130,7 @@ class ByteArray {
         var b = this.readByte();
         this.readByte(); //a
 
-        return (r << 16) + (g << 8) + b;
+        return `rgb(${r},${g},${b})`;
     }
 
     readFullColor() {
@@ -138,7 +138,7 @@ class ByteArray {
         var g = this.readByte();
         var b = this.readByte();
         var a = this.readByte();
-        return new Color4((r << 16) + (g << 8) + b, a / 255);
+        return `rgba(${r},${g},${b},${a/255}`;
     }
 
     readChar() {

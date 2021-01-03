@@ -54,11 +54,12 @@ fgui-cli restore [fileName]
 
 ## 二进制格式解析流程
  - createObject 【UIPackage】
- - constructFromResource【component】
+ - constructFromResource【 GComponent | GImage | GMovieClip 】
  - controller.setup【controller】
  - setup_beforeAdd 【component-child-GObject】
  - relations.setup【relations】
  - setup_afterAdd 【component-child-GObject】
+ - gear.setup 【GObject】
  - trans.setupp 【transion】
  - constructExtension 【extension】
 
