@@ -3,13 +3,40 @@ const zlib = require("zlib");
 const Jimp = require('jimp');
 const ByteArray = require('./ByteArray');
 const { resolve } = require('path');
-const { exists, xml2json, json2xml, getItemById, rgbaToHex } = require('./utils/utils');
+const { exists, xml2json, json2xml, getItemById, rgbaToHex, isEmptyObject, changeTwoDecimal } = require('./utils/utils');
 const { createMovieClip } = require('./build/create');
 
 process.on("uncaughtException", function (err) {
     console.log(err);
     debugger;
 });
+let a = `<?xml version="1.0" encoding="utf-8"?>
+<component size="505,35" extention="Button">
+  <controller name="button" pages="0,up,1,down,2,over,3,selectedOver" selected="0"/>
+  <displayList>
+    <graph id="n2" name="n2" xy="0,0" size="505,33" type="rect" lineColor="#ffccffff" fillColor="#0026498b">
+      <gearDisplay controller="button" pages="1,3"/>
+      <relation target="" sidePair="width-width,height-height"/>
+    </graph>
+    <graph id="n3" name="n3" xy="0,0" size="505,35" type="rect" lineColor="#ff7b98ac" fillColor="#b548797e">
+      <gearDisplay controller="button" pages="2"/>
+      <relation target="" sidePair="width-width,height-height"/>
+    </graph>
+    <text id="n0" name="t0" xy="1,3" size="47,28" fontSize="22" color="#ffffff" align="center" autoSize="none" singleLine="true" text="1"/>
+    <graph id="n4" name="n4" xy="0,34" size="505,1" type="rect" lineSize="0" fillColor="#ff325b62">
+      <relation target="" sidePair="width-width"/>
+    </graph>
+    <text id="n5" name="t1" xy="53,3" size="229,28" fontSize="22" color="#ffffff" align="center" autoSize="none" singleLine="true" text="Name"/>
+    <text id="n6" name="t2" xy="289,3" size="94,28" fontSize="22" color="#ffffff" align="center" autoSize="none" singleLine="true" text="Fairy"/>
+    <component id="n7" name="star" src="fjqr7j" xy="402,5">
+      <ProgressBar value="67" max="100"/>
+    </component>
+  </displayList>
+  <Button mode="Radio"/>
+</component>`;
+
+// fs.writeFileSync("test/3.json", JSON.stringify(fxp.parse(a,{arrayMode:true,parseAttributeValue:true})));
+// debugger;
 
 const XMLHeader = '<?xml version="1.0" encoding="utf-8"?>\n';
 
@@ -43,16 +70,120 @@ let importFileName = "Basics",
         "Loader3D"
     ],
     OverflowType = [
-        "Visible",
-        "Hidden",
-        "Scroll"
+        "visible",
+        "hidden",
+        "scroll"
     ],
     ButtonMode = [
         "Common",
         "Check",
         "Radio"
     ],
-    UIConfig = {}; // default
+    GraphType = [
+        "none",
+        "rect",
+        "ellipse",
+        "polygon",
+        "regular_polygon"
+    ],
+    RelationType = [
+        "left-left",
+        "left-center",
+        "left-right",
+        "center-center",
+        "right-left",
+        "right-center",
+        "right-right",
+        "top-top",
+        "top-middle",
+        "top-bottom",
+        "middle-middle",
+        "bottom-top",
+        "bottom-middle",
+        "bottom-bottom",
+        "width-width",
+        "height-height",
+        "leftext-left",
+        "leftext-right",
+        "rightext-left",
+        "rightext-right",
+        "topext-top",
+        "topext-bottom",
+        "bottomext-top",
+        "bottomext-bottom",
+        // Size
+    ],
+    fillMethodType = [
+        "None",
+        "Horizontal",
+        "Vertical",
+        "Radial90",
+        "Radial180",
+        "Radial360",
+    ],
+    easeType = [
+        "Linear",
+        "Sine.In",
+        "Sine.Out",
+        "Sine.InOut",
+        "Quad.In",
+        "Quad.Out",
+        "Quad.InOut",
+        "Cubic.In",
+        "Cubic.Out",
+        "Cubic.InOut",
+        "Quart.In",
+        "Quart.Out",
+        "Quart.InOut",
+        "Quint.In",
+        "Quint.Out",
+        "Quint.InOut",
+        "Expo.In",
+        "Expo.Out",
+        "Expo.InOut",
+        "Circ.In",
+        "Circ.Out",
+        "Circ.InOut",
+        "Elastic.In",
+        "Elastic.Out",
+        "Elastic.InOut",
+        "Back.In",
+        "Back.Out",
+        "Back.InOut",
+        "Bounce.In",
+        "Bounce.Out",
+        "Bounce.InOut",
+        "Custom",
+    ],
+    AutoSizeType = [
+        "none",
+        "both",
+        "height",
+        "shrink"
+    ],
+    PackageItemType=[
+        // Image,
+        // MovieClip,
+        // Sound,
+        // Component,
+        // Atlas,
+        // Font,
+        // Swf,
+        // Misc,
+        // Unknown
+        ".png",
+        ".jta",
+        "Sound",
+        ".xml",
+        ".png",
+        ".fnt",
+        ".swf"
+    ],
+    UIConfig = {},// default
+    GearType = [
+        "gearDisplay", "gearXY", "gearSize", "gearLook", "gearColor",
+        "gearAni", "gearText", "gearIcon", "gearDisplay2", "gearFontSize"
+    ];
 
 /**
  *  check package format
@@ -254,7 +385,7 @@ const createByPackageXML = async (pkgData) => {
     componentInfo.forEach((item) => {
         let component = item['$'];
         let file = `${component['id']}.xml`;
-        component['content'] = pkgData[file];
+        component['content'] = XMLHeader + pkgData[file];
         componentMap[file] = component;
     })
     createFileByData(componentMap, ".xml");
@@ -437,13 +568,13 @@ const createByPackageBin = async (pkgData) => {
     componentInfo.forEach((item) => {
         let component = item['$'];
         let { id } = component;
-        let content = decodeComponentData(UIPackage[id]);
+        let content = decodeComponentData(UIPackage[id],files);
         console.log(id);
         component['content'] = parseJSON2XML(content);
         componentMap[id] = component;
     })
-    fs.writeFileSync("test/2.json", JSON.stringify(componentMap));
-    // createFileByData(componentMap, ".xml");
+    // fs.writeFileSync("test/2.json", JSON.stringify(componentMap));
+    createFileByData(componentMap, ".xml");
     debugger;
     let path = resolve(tempPath);
     let tempfiles = fs.readdirSync(path);
@@ -591,7 +722,7 @@ function decodeMovieclipData(id, _sprites, files) {
     return movieclip;
 }
 
-function decodeComponentData(contentItem) {
+function decodeComponentData(contentItem,files) {
     let { rawData, objectType } = contentItem;
     let pi = { "children": [], objectType };
     rawData.seek(0, 0);
@@ -646,8 +777,6 @@ function decodeComponentData(contentItem) {
         nextPos = rawData.readShort();
         nextPos += rawData.pos;
 
-        // controller.parent = pi;
-        // controller.setup(rawData);
         let controller = setupController(rawData); // controller.setup
         pi.controllers.push(controller);
         rawData.pos = nextPos;
@@ -672,15 +801,19 @@ function decodeComponentData(contentItem) {
         var packageItem = null;
 
         if (src != null) {
-            pkg = UIPackage[src];
-            packageItem = pkg ? pkg : null;
+            packageItem = UIPackage[src];
+            if (packageItem) { // GComponent
+                child.objectType = packageItem.objectType;
+            }else{ // atlas image
+                packageItem = files[src];
+            }
+            child.path = packageItem.path;
+            child.file = packageItem.file;
+            child.packageItemType = packageItem.type;
         }
 
-        if (packageItem) {
-            child.objectType = packageItem.objectType
-        }
+        
 
-        child.beforeGObjectContent = decodeGObjectBefore(rawData, curPos);
         child.beforeContent = setup_beforeAdd(child.type, rawData, curPos) // setup_beforeAdd
         pi.children.push(child);
 
@@ -714,8 +847,10 @@ function decodeComponentData(contentItem) {
         // setup_afterAdd
         let type = child.objectType || child.type;
         let position = rawData.pos;
-        child.afterGObjectContent = decodeGObjectAfter(rawData, position);
         child.afterContent = setup_afterAdd(type, rawData, position);
+        child.content = Object.assign({}, child.beforeContent, child.afterContent);
+        delete child.beforeContent;
+        delete child.afterContent;
         rawData.pos = nextPos;
     }
 
@@ -759,11 +894,10 @@ function decodeComponentData(contentItem) {
 }
 
 function decodeGraphBefore(rawData, position) {
-    let data = {};
+    let data = { "shape": {} };
     rawData.seek(position, 5);
 
     let type = rawData.readByte();
-    data.type = type;
     if (type != 0) {
         let i;
         let cnt;
@@ -810,6 +944,7 @@ function decodeGraphBefore(rawData, position) {
 
             data.shape = { sides, lineSize, fillColor, lineColor, fillColor, startAngle, distances };
         }
+        Object.assign(data.shape, { type });
     }
     return data;
 }
@@ -1239,7 +1374,7 @@ function relationSetup(buffer, parentToChild) {
     var cnt = buffer.readByte();
     for (var i = 0; i < cnt; i++) {
         var targetIndex = buffer.readShort();
-        var newItem = { "relations": [] };
+        var newItem = { "relations": [], targetIndex };
         if (targetIndex != -1) {
             newItem.targetIndex = targetIndex;
             newItem.parentToChild = parentToChild;
@@ -1248,37 +1383,6 @@ function relationSetup(buffer, parentToChild) {
 
         var cnt2 = buffer.readByte();
         for (var j = 0; j < cnt2; j++) {
-            /**
-             *  Left_Left = 0,
-                Left_Center = 1,
-                Left_Right = 2,
-                Center_Center = 3,
-                Right_Left = 4,
-                Right_Center = 5,
-                Right_Right = 6,
-
-                Top_Top = 7,
-                Top_Middle = 8,
-                Top_Bottom = 9,
-                Middle_Middle = 10,
-                Bottom_Top = 11,
-                Bottom_Middle = 12,
-                Bottom_Bottom = 13,
-
-                Width = 14,
-                Height = 15,
-
-                LeftExt_Left = 16,
-                LeftExt_Right = 17,
-                RightExt_Left = 18,
-                RightExt_Right = 19,
-                TopExt_Top = 20,
-                TopExt_Bottom = 21,
-                BottomExt_Top = 22,
-                BottomExt_Bottom = 23,
-
-                Size = 24
-             */
             var rt = buffer.readByte();
             var usePercent = buffer.readBool();
             let relation = { rt, usePercent };
@@ -1383,62 +1487,127 @@ function setupScroll(buffer) {
     return data;
 }
 
-function gearSetup(buffer) {
-    let data = { "pages": [] };
+function gearSetup(buffer, gearType) {
+    let gearName = GearType[gearType];
+    let data = { "pages": [], gearName };
     data.controllerId = buffer.readShort(); //  controller id
     var i;
-    var page;
+    var page, status;
     var cnt = buffer.readShort();
-    data.pages = buffer.readSArray(cnt);
+    data.status = [];
+    data.extStatus = [];
     // todo
     // controller in this parent 
-    // if ("pages" in this) { 
-    //     data.pages = buffer.readSArray(cnt);
-    // } else {
-    //     for (i = 0; i < cnt; i++) {
-    //         page = buffer.readS();
-    //         if (page == null)
-    //             continue;
+    if (gearName == "gearDisplay" || gearName == "gearDisplay2") {  // GearDisplay GearDisplay2
+        data.pages = buffer.readSArray(cnt);
+    } else {
+        for (i = 0; i < cnt; i++) {
+            page = buffer.readS();
+            if (page == null) {
+                page = i + "";
+                status = {};
+            } else {
+                status = addStatus(gearType, page, buffer);
+            }
+            data.pages.push(page);
+            data.status.push(status);
+        }
 
-    //         data.addStatus(page, buffer);
-    //     }
-
-    //     if (buffer.readBool())
-    //         data.addStatus(null, buffer);
-    // }
+        if (buffer.readBool()) {// default
+            data.defaultValues = addStatus(gearType, null, buffer);
+        }
+    }
 
     if (buffer.readBool()) {
-        data.tweenConfig = {};
-        data.tweenConfig.easeType = buffer.readByte();
+        data.tweenConfig = { tween: true };
+        data.tweenConfig.ease = buffer.readByte();
         data.tweenConfig.duration = buffer.readFloat();
         data.tweenConfig.delay = buffer.readFloat();
     }
 
     if (buffer.version >= 2) {
         // todo positionsInPercent && condition
-        // if ("positionsInPercent" in this) {
-        //     if (buffer.readBool()) {
-        //         (<any>this).positionsInPercent = true;
-        //         for (i = 0; i < cnt; i++) {
-        //             page = buffer.readS();
-        //             if (page == null)
-        //                 continue;
+        if (gearName == "gearXY") { // gearXY
+            if (buffer.readBool()) {
+                debugger;
+                data.positionsInPercent = true;
+                for (i = 0; i < cnt; i++) {
+                    page = buffer.readS();
+                    if (page == null) {
+                        extStatus = {}
+                    } else {
+                        extStatus = addExtStatus(page, buffer)
+                    }
+                    data.extStatus.push(extStatus);
+                }
 
-        //             (<any>this).addExtStatus(page, buffer);
-        //         }
-
-        //         if (buffer.readBool())
-        //             (<any>this).addExtStatus(null, buffer);
-        //     }
-        // }
-        // else if ("condition" in this)
-        //     (<any>this).condition = buffer.readByte();
+                if (buffer.readBool())
+                    data.defaultExtStatus = addExtStatus(null, buffer);
+            }
+        } else if (gearName == "gearDisplay2") {// GearDisplay2
+            data.condition = buffer.readByte();
+        }
     }
     return data;
 }
 
+function addStatus(type, page, buffer) {
+    let data = {};
+    switch (GearType[type]) {
+        case "gearSize":
+            data.width = buffer.readInt();
+            data.height = buffer.readInt();
+            data.scaleX = buffer.readFloat();
+            data.scaleY = buffer.readFloat();
+            break;
+        case "gearIcon":
+            data.default = buffer.readS();
+            break;
+        case "gearFontSize":
+            data.default = buffer.readInt();
+            break;
+        case "gearColor":
+            data.color = buffer.readColor();
+            data.strokeColor = buffer.readColor();
+            break;
+        case "gearText":
+            data.color = buffer.readColor();
+            data.strokeColor = buffer.readColor();
+            break;
+        case "gearXY":
+            data.x = buffer.readInt();
+            data.y = buffer.readInt();
+            break;
+        case "gearLook":
+            data.alpha = buffer.readFloat();
+            data.rotation = buffer.readFloat();
+            data.grayed = buffer.readBool();
+            data.touchable = buffer.readBool();
+            break;
+        case "gearAni":
+            data.playing = buffer.readBool();
+            data.frame = buffer.readInt();
+            break;
+        default:
+            debugger;
+            break;
+    }
+
+    return data;
+
+
+}
+
+function addExtStatus(buffer) {
+    let data = {};
+    data.px = buffer.readFloat();
+    data.py = buffer.readFloat();
+    return data;
+}
+
 function setup_beforeAdd(type, buffer, position) {
-    let content;
+    let content = {};
+    let object = decodeGObjectBefore(buffer, position);
     switch (type) {
         case 0: // Image
             content = decodeImageBefore(buffer, position);
@@ -1484,79 +1653,60 @@ function setup_beforeAdd(type, buffer, position) {
         default:
             break;
     }
-    return content;
+    return Object.assign(object, content);
 }
 
 function setup_afterAdd(type, buffer, position) {
-    let data = {};
+    let object = decodeGObjectAfter(buffer, position);;
+    let data = { "content": {}, "component": {} };
     switch (type) {
-        case 0: // Image
-            return data;
-        case 1: // MovieClip
-            return data;
-        case 3: // GGraph
-            return data;
-
-        case 4: // Loader
-            return data;
-
-        case 5: // Group:
-            return data;
-
         case 6: // Text
             data.content = decodeTextFieldAfter(buffer, position);
-            return data;
-
+            break;
         case 7: // RichText
             data.content = decodeTextFieldAfter(buffer, position);
-            return data;
+            break;
 
         case 8: // InputText
             data.content = decodeTextFieldAfter(buffer, position);
-            return data;
+            break;
 
         case 9: // Gcomponet
             data.content = decodeComponetAfter(buffer, position);
-            return data;
+            break;
         case 10: // List
             data.component = decodeComponetAfter(buffer, position);
             data.content = decodeListAfter(buffer, position);
-            return data;
+            break;
 
         case 11: // Label
             data.component = decodeComponetAfter(buffer, position);
             data.content = decodeLabelAfter(buffer, position);
-            return data;
+            break;
 
         case 12: // Button
             data.component = decodeComponetAfter(buffer, position);
             data.content = decodeButtonAfter(buffer, position);
-            return data;
+            break;
 
         case 13: // ComboBox
             data.component = decodeComponetAfter(buffer, position);
             data.content = decodeComboBoxAfter(buffer, position);
-            return data;
+            break;
 
         case 14: // ProgressBar
             data.component = decodeComponetAfter(buffer, position);
             data.content = decodeProgressBarAfter(buffer, position);
-            return data;
+            break;
 
         case 15: // Slider
             data.component = decodeComponetAfter(buffer, position);
             data.content = decodeSliderAfter(buffer, position);
-            return data;
-
-        case 16: // ScrollBar
-            return new GTree();
-
-        case 17: // Tree
-            return new GLoader3D();
-
+            break;
         default:
-            return data;
+            break;
     }
+    return Object.assign(object, data.component, data.content, { type });
 }
 
 function decodeProgressBarAfter(rawData, position) {
@@ -1774,9 +1924,9 @@ function decodeButtonAfter(rawData, position) {
 
     str = rawData.readS();
     if (str != null)
-        data._sound = str;
+        data.sound = str;
     if (rawData.readBool())
-        data._soundVolumeScale = rawData.readFloat();
+        data.volume = rawData.readFloat();
 
     data.selected = rawData.readBool();
 
@@ -1921,12 +2071,14 @@ function decodeGObjectAfter(rawData, position) {
     rawData.seek(position, 2);
 
     var cnt = rawData.readShort();
+    data.gears = [];
     for (var i = 0; i < cnt; i++) {
         var nextPos = rawData.readShort();
         nextPos += rawData.pos;
 
-        data.gearIdx = rawData.readByte();
-        data.gear = gearSetup(rawData);
+        data.gearType = rawData.readByte();
+        let gear = gearSetup(rawData, data.gearType);
+        data.gears.push(gear);
         rawData.pos = nextPos;
     }
     return data;
@@ -1946,8 +2098,8 @@ function decodeGObjectBefore(rawData, position) {
 
     // size
     if (rawData.readBool()) {
-        data.initWidth = rawData.readInt();
-        data.initHeight = rawData.readInt();
+        data.width = rawData.readInt();
+        data.height = rawData.readInt();
     }
 
     if (rawData.readBool()) {
@@ -2349,14 +2501,15 @@ const parseJSON2XML = (json) => {
             "$": {},
             "controler": [],
             "displayList": {
+
             }
         }
     }
-    let { width, height, objectType, overflow, hitTestId, controllers, extensionData } = json;
+    let { width, height, objectType, overflow, hitTestId, controllers, extensionData, children } = json;
     let { component } = base;
-    let { displayList, $ } = component;
+    let { $ } = component;
     $['size'] = `${width},${height}`;
-    if (objectType) {
+    if (objectType && objectType !== 9) {
         let type = ObjectType[objectType];
         $['extention'] = type;
         component[type] = parseExtension(type, extensionData);
@@ -2371,9 +2524,15 @@ const parseJSON2XML = (json) => {
     if (controler) {
         component['controler'] = controler;
     }
-    let a = json2xml(base);
-    console.log(a);
-    debugger;
+    if (children) {
+        component['displayList'] = parseDisplayList(children, json);
+    }
+    console.log(base);
+    let xml = json2xml(base);
+    xml = xml.replace(/_{\$(\w+)}_/g, "");
+    console.log(xml);
+    // debugger;
+    return xml;
 }
 
 function parseControllers(controllers) {
@@ -2387,25 +2546,284 @@ function parseControllers(controllers) {
                 pages += `${pageId},${pageNames[idx]},`;
             }
         })
-        return { $: { name, selected, pages } };
+        return { $: { name, pages, selected } };
     })
 }
 
-function parseDisplayList(){
+function parseDisplayList(children, parent) {
+    let { controllers } = parent;
     let displayList = {
-        "image":[],
-        
-        "graph": [],
-        "text": [],
-        "component": [],
-    }
+        // "_{$1}_image": [],
+    };
+    children.forEach((child, idx) => {
+        let { type, src, content, relations, path,packageItemType,file } = child;
+        let objectType = ObjectType[type];
+        let { width, height, id, name, x, y, gears, grayed, align, valign, group, fill, touchable } = content;
+        let size = `${width},${height}` != "undefined,undefined" ? `${width},${height}` : null;
+        let xy = `${x},${y}`;
+        let fileName;
+        let objectData = {}, extensionData;
+        switch (objectType) {
+            case "Image":
+                console.log(content);
+                let { image } = content;
+                let { fillMethod, fillOrigin, fillClockwise, fillAmount } = image;
+                if (fillMethod != 0) objectData.fillMethod = fillMethodType[fillMethod]
+                // debugger;
+                break;
+            case "MovieClip":
+                let { movieClip } = content;
+                let { frame, graphics, playing } = movieClip;
+                objectData.frame = frame;
+                console.log(content);
+                // debugger;
+                break;
+            case "Graph":
+                let { shape } = content;
+                let { lineSize, lineColor, fillColor } = shape;
+                objectData.type = GraphType[shape.type];
+                if (lineSize != 1) objectData.lineSize = lineSize; // default
+                if (lineSize != 0) {
+                    objectData.lineColor = lineColor;
+                }
+                objectData.fillColor = fillColor;
+                break;
+            case "Text":
+                let { textField, singleLine, autoSize, text } = content;
+                let { textFormat } = textField;
+                objectData.fontSize = textFormat.size;
+                objectData.color = textFormat.color == "#000000" ? null : textFormat.color;
+                objectData.align = align;
+                objectData.valign = valign;
+                objectData.autoSize = AutoSizeType[autoSize];
+                if (singleLine) objectData.singleLine = singleLine;
+                objectData.text = text || "";
+                break;
+            case "Component":
+                let { type } = content;
+                let extensionName = ObjectType[type];
+                switch (extensionName) {
+                    case "ProgressBar":
+                        let { value, max } = content;
+                        extensionData = {};
+                        extensionData[extensionName] = {
+                            "$": { value, max }
+                        };
+                        break;
+                    case "Button":
+                        extensionData = {};
+                        let { selected } = content;
+                        if (selected) {
+                            extensionData[extensionName] = {
+                                "$": { "checked": selected }
+                            };
+                        }
+                        break;
+                    default:
+                        console.log(extensionName);
+                        // debugger;
+                        break;
+                }
+                break;
+            case "Loader":
+                objectData.align = align;
+                objectData.valign = valign;
+                objectData.fill = fill;
+                break
+            case "List":
+                // debugger;
+                break;
+            default:
+                console.log(objectType, content);
+                // debugger;
+                break;
+        }
+        if (src) {
+            let fileExt = PackageItemType[packageItemType];
+            if(!fileExt){
+                throw new Error("PackageItemType undefined!!");
+            }
+            
+            if(fileExt == "Sound"){
+                fileName = path.slice(0, 1) + file;
+            }else{
+                fileName = path.slice(0, 1) + child.name + fileExt;
+            }
+        }
+        let originData = {
+            "$": { id, name, src, fileName, xy, size, touchable, grayed, group }
+        };
+        Object.assign(originData["$"], objectData);
+        if (extensionData) {
+            Object.assign(originData, extensionData);
+        }
+
+        // gear
+        let gearObject = {};
+        if (gears.length > 0) {
+            gears.forEach((gear) => {
+                let { controllerId, pages, gearName, status, extStatus, defaultValues, defaultExtStatus, tweenConfig, positionsInPercent, condition } = gear;
+
+                let defaultStr;
+                let values = status.map((item, idx) => {
+                    let value = "-";
+                    switch (gearName) {
+                        case "gearXY":
+                            if (!isEmptyObject(item)) {
+                                let { x, y } = item;
+                                value = `${x},${y}`;
+                                if (positionsInPercent) {
+                                    let = { px, py } = extStatus[idx];
+                                    value += `${px},${py}`;
+                                }
+                            }
+                            if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
+                                let { x, y } = defaultValues;
+                                defaultStr = `${x},${y}`;
+                                if (positionsInPercent) {
+                                    let = { px, py } = defaultExtStatus[idx];
+                                    defaultStr += `${px},${py}`;
+                                }
+                            }
+                            break;
+                        case "gearSize":
+                            if (!isEmptyObject(item)) {
+                                let { width, height, scaleX, scaleY } = item;
+                                value = `${width},${height},${changeTwoDecimal(scaleX)},${changeTwoDecimal(scaleY)}`;
+                            }
+                            if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
+                                let { width, height, scaleX, scaleY } = defaultValues;
+                                defaultStr = `${width},${height},${changeTwoDecimal(scaleX)},${changeTwoDecimal(scaleY)}`;
+                            }
+                            break;
+                        case "gearLook":
+                            if (!isEmptyObject(item)) {
+                                let { alpha, rotation, grayed, touchable } = item;
+                                value = `${changeTwoDecimal(alpha)},${rotation},${+grayed},${+touchable}`;
+                            }
+                            if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
+                                let { alpha, rotation, grayed, touchable } = defaultValues;
+                                defaultStr = `${changeTwoDecimal(alpha)},${rotation},${+grayed},${+touchable}`;
+                            }
+                            break;
+                        case "gearColor":
+                            if (!isEmptyObject(item)) {
+                                let { color, strokeColor } = item;
+                                if (strokeColor == "rgb(0,0,0)") strokeColor = null;
+                                value = `${rgbaToHex(color, false)},${rgbaToHex(strokeColor, false)}`;
+                            }
+                            if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
+                                let { color, strokeColor } = defaultValues;
+                                if (strokeColor == "rgb(0,0,0)") strokeColor = null;
+                                defaultStr = `${rgbaToHex(color, false)},${rgbaToHex(strokeColor, false)}`;
+                            }
+                            break;
+                        case "gearAni":
+                            if (!isEmptyObject(item)) {
+                                let { frame, playing } = item;
+                                value = `${frame},${playing ? "p" : "s"}`;
+                            }
+                            if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
+                                let { frame, playing } = defaultValues;
+                                defaultStr = `${frame},${playing ? "p" : "s"}`;
+                            }
+                            break;
+                        case "gearFontSize":
+                            if (!isEmptyObject(item)) {
+                                value = `${item.default}`;
+                            }
+                            if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
+                                defaultStr = `${item.default}`;
+                            }
+                            break;
+                        default:
+                            debugger;
+                            break;
+                    }
+                    if (value && value.endsWith(',')) {
+                        value = value.slice(0, value.length - 1);
+                    }
+                    if (defaultStr && defaultStr.endsWith(',')) {
+                        defaultStr = defaultStr.slice(0, defaultStr.length - 1);
+                    }
+                    return value;
+                });
+
+                if (values.length == 0) {
+                    values = null;
+                } else {
+                    values = values.join("|");
+                }
+
+                gearObject[gearName] = {
+                    "$": {
+                        "controller": controllers[controllerId]['name'],
+                        "pages": pages.join(","),
+                        values,
+                        condition,
+                        "default": defaultStr
+
+                    }
+                }
+
+                if (tweenConfig && tweenConfig.tween) {
+                    let { ease, delay, duration, tween } = tweenConfig;
+                    if (ease != 5) {
+                        ease = easeType[ease];
+                    } else {
+                        ease = null;
+                    }
+                    duration = duration.toFixed(1);
+                    if (duration == "0.3") duration = null;
+                    if (delay === 0) {
+                        delay = null;
+                    } else {
+                        delay = delay.toString().replace("0.", ".");
+                    }
+                    Object.assign(gearObject[gearName]['$'], { tween, ease, duration, delay });
+                }
+            })
+
+        }
+
+        Object.assign(originData, gearObject);
+
+
+        // relation
+        let relation = [];
+        if (relations && relations.items) {
+            relations.items.forEach((item) => {
+                let $ = { "target": "", "sidePair": "" };
+                let targetIndex = item.targetIndex;
+                if (targetIndex > -1) {
+                    $.target = parent['children'][targetIndex]['content']['id'];
+                }
+                let sidePairs = item.relations.map((sidePair) => {
+                    let { rt, usePercent } = sidePair;
+                    rt = RelationType[rt];
+                    usePercent = usePercent ? "%" : "";
+                    return `${rt}${usePercent}`;
+                });
+                if (sidePairs) {
+                    $.sidePair = sidePairs.join(",");
+                }
+                relation.push({ $ });
+            })
+        }
+        if (relation) {
+            Object.assign(originData, { relation });
+        }
+
+        displayList[`_{$${idx}}_${objectType.toLocaleLowerCase()}`] = originData;
+    })
+    return displayList;
 }
 
 function parseExtension(type, extensionData) {
     let data = { $: {} };
     switch (type) {
         case "Button":
-            let { downEffect, downEffectValue, mode, soundVolumeScale } = extensionData;
+            let { downEffect, downEffectValue, mode, soundVolumeScale, sound } = extensionData;
             if (downEffect) {
                 data['$']['downEffect'] = downEffect;
                 if (downEffectValue) {
@@ -2417,9 +2835,14 @@ function parseExtension(type, extensionData) {
                 data['$']['mode'] = ButtonMode[mode]
             }
             if (soundVolumeScale > 1) {
-                data['$']['soundVolumeScale'] = soundVolumeScale
+                data['$']['volume'] = volume
             }
-
+            if (sound) {
+                data['$']['sound'] = sound;
+            }
+            break;
+        default:
+            console.log("parseExtension:", type, extensionData);
             break;
     }
 
@@ -2527,9 +2950,6 @@ const createFileByData = (data, ext) => {
             fs.mkdirSync(resolve(output));
         }
         output = `${output}${name}${ext}`;
-        if (ext == ".xml") {
-            content = XMLHeader + content;
-        }
         fs.writeFileSync(output, content)
     }
     console.log("finish createFileByData");
