@@ -36,6 +36,15 @@ const getItemById = (itemMap, id) => {
     return item;
 }
 
+const getObjectById = (obj, id, name) => {
+    for (let key in obj) {
+        let value = obj[key];
+        if (name == value[id]) {
+            return value;
+        }
+    }
+}
+
 const json2xml = (json) => {
     let builder = new Builder({ xmldec: { 'version': '1.0', 'encoding': 'UTF-8', noValidation: true } });
     return builder.buildObject(json);
@@ -86,6 +95,8 @@ const changeTwoDecimal = (x) => {
     return s_x;
 }
 
+
+
 module.exports.xml2json = xml2json;
 module.exports.json2xml = json2xml;
 module.exports.exists = exists;
@@ -95,3 +106,4 @@ module.exports.getItemById = getItemById;
 module.exports.rgbaToHex = rgbaToHex;
 module.exports.isEmptyObject = isEmptyObject;
 module.exports.changeTwoDecimal = changeTwoDecimal;
+module.exports.getObjectById = getObjectById;

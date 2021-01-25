@@ -3,43 +3,35 @@ const zlib = require("zlib");
 const Jimp = require('jimp');
 const ByteArray = require('./ByteArray');
 const { resolve } = require('path');
-const { exists, xml2json, json2xml, getItemById, rgbaToHex, isEmptyObject, changeTwoDecimal } = require('./utils/utils');
+const { exists, xml2json, json2xml, getItemById, getObjectById, rgbaToHex, isEmptyObject, changeTwoDecimal } = require('./utils/utils');
 const { createMovieClip } = require('./build/create');
 
 process.on("uncaughtException", function (err) {
     console.log(err);
     debugger;
 });
-let a = `<?xml version="1.0" encoding="utf-8"?>
-<component size="505,35" extention="Button">
-  <controller name="button" pages="0,up,1,down,2,over,3,selectedOver" selected="0"/>
-  <displayList>
-    <graph id="n2" name="n2" xy="0,0" size="505,33" type="rect" lineColor="#ffccffff" fillColor="#0026498b">
-      <gearDisplay controller="button" pages="1,3"/>
-      <relation target="" sidePair="width-width,height-height"/>
-    </graph>
-    <graph id="n3" name="n3" xy="0,0" size="505,35" type="rect" lineColor="#ff7b98ac" fillColor="#b548797e">
-      <gearDisplay controller="button" pages="2"/>
-      <relation target="" sidePair="width-width,height-height"/>
-    </graph>
-    <text id="n0" name="t0" xy="1,3" size="47,28" fontSize="22" color="#ffffff" align="center" autoSize="none" singleLine="true" text="1"/>
-    <graph id="n4" name="n4" xy="0,34" size="505,1" type="rect" lineSize="0" fillColor="#ff325b62">
-      <relation target="" sidePair="width-width"/>
-    </graph>
-    <text id="n5" name="t1" xy="53,3" size="229,28" fontSize="22" color="#ffffff" align="center" autoSize="none" singleLine="true" text="Name"/>
-    <text id="n6" name="t2" xy="289,3" size="94,28" fontSize="22" color="#ffffff" align="center" autoSize="none" singleLine="true" text="Fairy"/>
-    <component id="n7" name="star" src="fjqr7j" xy="402,5">
-      <ProgressBar value="67" max="100"/>
-    </component>
-  </displayList>
-  <Button mode="Radio"/>
-</component>`;
-
-// fs.writeFileSync("test/3.json", JSON.stringify(fxp.parse(a,{arrayMode:true,parseAttributeValue:true})));
-// debugger;
 
 const XMLHeader = '<?xml version="1.0" encoding="utf-8"?>\n';
-
+// let a = `
+// <?xml version="1.0" encoding="utf-8"?>
+// <component size="1136,640" bgColor="#3f3f3f">
+//   <displayList>
+//     <graph id="n3_sw6l" name="n3" xy="43,16" size="424,594" type="rect" lineSize="2"/>
+//     <list id="n4_sw6l" name="tree" xy="45,18" size="419,589" overflow="scroll" scrollBarFlags="128" defaultItem="ui://5nx1f8vzpmk31" treeView="true" indent="15" clickToExpand="1">
+//       <item title="Folder 1" icon="ui://5nx1f8vzpmk32" name="12" selectedIcon="ui://5nx1f8vzua5o6" selectedTitle="12" level="0"/>
+//       <item title="Leaf 1" icon="ui://5nx1f8vzua5o8" level="1"/>
+//       <item title="Leaf 2" icon="ui://5nx1f8vzua5o8" level="1"/>
+//       <item title="Leaf 3" icon="ui://5nx1f8vzua5o8" level="1"/>
+//       <item title="Leaf 4" icon="ui://5nx1f8vzua5o8" name="2" level="1"/>
+//       <item title="Folder 2" name="1" level="0"/>
+//       <item level="0"/>
+//       <item title="Leaf 1" icon="ui://5nx1f8vzua5o7" level="1"/>
+//     </list>
+//     <graph id="n5_sw6l" name="n5" xy="624,16" size="424,594" type="rect" lineSize="2"/>
+//     <list id="n6_sw6l" name="tree2" xy="626,18" size="419,589" overflow="scroll" scrollBarFlags="128" defaultItem="ui://5nx1f8vzpmk31" treeView="true" indent="15" clickToExpand="1"/>
+//   </displayList>
+// </component>`;
+// xml2json(a).then((res)=>{console.log(res)});
 let importFileName = "Basics",
     inputPath = "./test/",
     outputPath = './output/',
@@ -73,6 +65,24 @@ let importFileName = "Basics",
         "visible",
         "hidden",
         "scroll"
+    ],
+    ChildrenRenderOrder = [
+        "ascent",
+        "descent",
+        "arch"
+    ],
+    ListSelectionMode = [
+        "single",
+        "multiple",
+        "multipleSingleClick",
+        "none"
+    ],
+    ListLayoutType = [
+        "singleColumn",
+        "singleRow",
+        "flowHorizontal",
+        "flowVertical",
+        "pagination"
     ],
     ButtonMode = [
         "Common",
@@ -115,11 +125,36 @@ let importFileName = "Basics",
     ],
     fillMethodType = [
         "None",
-        "Horizontal",
-        "Vertical",
-        "Radial90",
-        "Radial180",
-        "Radial360",
+        "hz",
+        "vt",
+        "radial90",
+        "radial180",
+        "radial360",
+    ],
+    FlipType = [
+        "None",
+        "hz",
+        "vt",
+        "both"
+    ],
+    LoaderFillType = [
+        "none",
+        "scale",
+        "scaleMatchHeight",
+        "scaleMatchWidth",
+        "scaleFree",
+        "scaleNoBorder"
+    ],
+    FillOrigin = [
+        "topLeft",
+        "topRight",
+        "bottomLeft",
+        "bottomRight"
+    ],
+    ScrollType = [
+        "horizontal",
+        "vertical",
+        "both"
     ],
     easeType = [
         "Linear",
@@ -161,7 +196,13 @@ let importFileName = "Basics",
         "height",
         "shrink"
     ],
-    PackageItemType=[
+    ScrollBarDisplayType = [
+        "default",
+        "visible",
+        "auto",
+        "hidden"
+    ],
+    PackageItemType = [
         // Image,
         // MovieClip,
         // Sound,
@@ -179,6 +220,7 @@ let importFileName = "Basics",
         ".fnt",
         ".swf"
     ],
+    packageItemMap = {},
     UIConfig = {},// default
     GearType = [
         "gearDisplay", "gearXY", "gearSize", "gearLook", "gearColor",
@@ -193,8 +235,10 @@ let importFileName = "Basics",
 const start = async (path) => {
     console.time('start');
     let buf = fs.readFileSync(`${path}`); // Buffer 
-    let ba = new ByteArray(buf.buffer), pkgData;
-    if (ba.readUint() == 0x46475549) { // binary 
+    let arrayBuffer = Buffer.from(buf).buffer;
+    let ba = new ByteArray(arrayBuffer), pkgData;
+    let formatFlag = ba.readUint(); // 1179080009
+    if (formatFlag == 0x46475549) { // binary 
         pkgData = await parseBufferBin(ba);
         await handlePackageFileBin(pkgData);
         await createByPackageBin(pkgData);
@@ -291,30 +335,35 @@ const handlePackageDataXML = async (data) => {
     let fonts = resources['font'];
     let sounds = resources['sound'];
     if (components) {
+        if (!Array.isArray(components)) components = [components];
         components.forEach((item) => {
             item['$']['name'] = item['$']['name'] + '.xml';
             delete item['$']['size'];
         })
     }
     if (images) {
+        if (!Array.isArray(images)) images = [images];
         images.forEach((item) => {
             item['$']['name'] = item['$']['name'] + '.png';
             delete item['$']['size'];
         })
     }
     if (movieclips) {
+        if (!Array.isArray(movieclips)) movieclips = [movieclips];
         movieclips.forEach((item) => {
             item['$']['name'] = item['$']['name'] + '.jta';
             delete item['$']['size'];
         })
     }
     if (fonts) {
+        if (!Array.isArray(fonts)) fonts = [fonts];
         fonts.forEach((item) => {
             item['$']['name'] = item['$']['name'] + '.fnt';
             delete item['$']['size'];
         })
     }
     if (sounds) {
+        if (!Array.isArray(sounds)) sounds = [sounds];
         sounds.forEach((item) => {
             // todo check file ext
             item['$']['name'] = item['$']['name'] + '.' + item['$']['file'].split(".").pop();
@@ -322,7 +371,7 @@ const handlePackageDataXML = async (data) => {
             delete item['$']['file'];
         })
     }
-    return json2xml(xml);
+    return json2xml(json);
 }
 
 const handlePackageFileXML = async (data) => {
@@ -344,57 +393,71 @@ const createByPackageXML = async (pkgData) => {
 
     // Verifies if the texture exists in the same directory
     let atlasInfo = packageData["packageDescription"]['resources']['atlas'];
-    handleAltas(atlasInfo);
+    if (atlasInfo) {
+        if (!Array.isArray(atlasInfo)) atlasInfo = [atlasInfo];
+        handleAltas(atlasInfo);
+    }
 
     // parse sprites.bytes
     let imageInfo = packageData["packageDescription"]['resources']['image'];
-    let spritesMap = parseSprites(pkgData['sprites.bytes']);
-    imageInfo.forEach((item) => {
-        let image = item['$'];
-        let key = image['id'];
-        Object.assign(spritesMap[key], image);
-    })
-    await handleSprites(spritesMap);
+    if (imageInfo) {
+        if (!Array.isArray(imageInfo)) imageInfo = [imageInfo];
+        let spritesMap = parseSprites(pkgData['sprites.bytes']);
+        imageInfo.forEach((item) => {
+            let image = item['$'];
+            let key = image['id'];
+            Object.assign(spritesMap[key], image);
+        })
+        await handleSprites(spritesMap);
+    }
 
     let soundInfo = packageData["packageDescription"]['resources']['sound'];
-    handleSound(soundInfo, false);
+    if (soundInfo) {
+        if (!Array.isArray(soundInfo)) soundInfo = [soundInfo];
+        handleSound(soundInfo, false);
+    }
 
     let fontInfo = packageData["packageDescription"]['resources']['font'];
-    let fontMap = {};
-    fontInfo.forEach((item) => {
-        let font = item['$'];
-        let file = `${font['id']}.fnt`;
-        font['content'] = pkgData[file];
-        fontMap[file] = font;
-    })
-    createFileByData(fontMap, '.fnt');
+    if (fontInfo) {
+        let fontMap = {};
+        if (!Array.isArray(fontInfo)) fontInfo = [fontInfo];
+        fontInfo.forEach((item) => {
+            let font = item['$'];
+            let file = `${font['id']}.fnt`;
+            font['content'] = pkgData[file];
+            fontMap[file] = font;
+        })
+        createFileByData(fontMap, '.fnt');
+    }
     let movieclipInfo = packageData["packageDescription"]['resources']['movieclip'];
-    let movieclipMap = {};
-    movieclipInfo.forEach((item) => {
-        let movieclip = item['$'];
-        let file = `${movieclip['id']}.xml`;
-        movieclip['content'] = pkgData[file];
-        delete pkgData[file];
-        movieclipMap[file] = movieclip;
-    })
+    if (movieclipInfo) {
+        if (!Array.isArray(movieclipInfo)) movieclipInfo = [movieclipInfo];
+        let movieclipMap = {};
+        movieclipInfo.forEach((item) => {
+            let movieclip = item['$'];
+            let file = `${movieclip['id']}.xml`;
+            movieclip['content'] = pkgData[file];
+            delete pkgData[file];
+            movieclipMap[file] = movieclip;
+        })
 
-    await handleMovieclip(movieclipMap);
+        await handleMovieclip(movieclipMap);
+    }
 
     let componentInfo = packageData["packageDescription"]['resources']['component'];
-    let componentMap = {};
-    componentInfo.forEach((item) => {
-        let component = item['$'];
-        let file = `${component['id']}.xml`;
-        component['content'] = XMLHeader + pkgData[file];
-        componentMap[file] = component;
-    })
-    createFileByData(componentMap, ".xml");
-    let path = resolve(tempPath);
-    let files = fs.readdirSync(path);
-    files.forEach((file) => {
-        fs.unlinkSync(path + '/' + file);
-    });
-    fs.rmdirSync(path);
+    if (componentInfo) {
+        if (!Array.isArray(componentInfo)) componentInfo = [componentInfo];
+        let componentMap = {};
+        componentInfo.forEach((item) => {
+            let component = item['$'];
+            let file = `${component['id']}.xml`;
+            component['content'] = XMLHeader + pkgData[file];
+            componentMap[file] = component;
+        })
+        createFileByData(componentMap, ".xml");
+    }
+
+    deleteTemp(tempPath);
 }
 
 const handlePackageDataBin = (pkgData) => {
@@ -526,62 +589,87 @@ const createByPackageBin = async (pkgData) => {
     const files = pkgData['files'];
     // Verifies if the texture exists in the same directory
     let atlasInfo = packageData["packageDescription"]['resources']['atlas'];
-    // handleAltas(atlasInfo);
+    if (atlasInfo) {
+        if (!Array.isArray(atlasInfo)) atlasInfo = [atlasInfo];
+        // handleAltas(atlasInfo);
+    }
 
     // parse sprites.bytes
     let imageInfo = packageData["packageDescription"]['resources']['image'];
-    let spritesMap = pkgData['sprites.bytes'];
-    imageInfo.forEach((item) => {
-        let image = item['$'];
-        let key = image['id'];
-        Object.assign(spritesMap[key], image);
-    })
-    // await handleSprites(spritesMap, false);
+    if (imageInfo) {
+        if (!Array.isArray(imageInfo)) imageInfo = [imageInfo];
+        let spritesMap = pkgData['sprites.bytes'];
+        imageInfo.forEach((item) => {
+            let image = item['$'];
+            let key = image['id'];
+            Object.assign(spritesMap[key], image);
+        })
+        // await handleSprites(spritesMap, false);
+    }
 
     let soundInfo = packageData["packageDescription"]['resources']['sound'];
-    // handleSound(soundInfo, false);
+    if (soundInfo) {
+        if (!Array.isArray(soundInfo)) soundInfo = [soundInfo];
+        // handleSound(soundInfo, false);
+    }
 
     let fontInfo = packageData["packageDescription"]['resources']['font'];
-    let fontMap = {};
-    fontInfo.forEach((item) => {
-        let font = item['$'];
-        let file = `${font['id']}.fnt`;
-        font['content'] = decodeFontData(font['id'], sprites, files);
-        fontMap[file] = font;
-    })
-    // createFileByData(fontMap, '');
+    if (fontInfo) {
+        let fontMap = {};
+        if (!Array.isArray(fontInfo)) fontInfo = [fontInfo];
+        fontInfo.forEach((item) => {
+            let font = item['$'];
+            let file = `${font['id']}.fnt`;
+            font['content'] = decodeFontData(font['id'], sprites, files);
+            fontMap[file] = font;
+        })
+        // createFileByData(fontMap, '');
+    }
 
     let movieclipInfo = packageData["packageDescription"]['resources']['movieclip'];
-    let movieclipMap = {};
-    movieclipInfo.forEach((item) => {
-        let movieclip = item['$'];
-        let { id } = movieclip;
-        // let file = `${movieclip['id']}.xml`;
-        // movieclip['content'] = pkgData[file];
-        movieclip['content'] = decodeMovieclipData(id, sprites, files);
-        movieclipMap[id] = movieclip;
-    })
-    // await handleMovieclip(movieclipMap);
+    if (movieclipInfo) {
+        if (!Array.isArray(movieclipInfo)) movieclipInfo = [movieclipInfo];
+        let movieclipMap = {};
+        movieclipInfo.forEach((item) => {
+            let movieclip = item['$'];
+            let { id } = movieclip;
+            // let file = `${movieclip['id']}.xml`;
+            // movieclip['content'] = pkgData[file];
+            movieclip['content'] = decodeMovieclipData(id, sprites, files);
+            movieclipMap[id] = movieclip;
+        })
+        // await handleMovieclip(movieclipMap);
+    }
 
     let componentInfo = packageData["packageDescription"]['resources']['component'];
-    let componentMap = {};
-    componentInfo.forEach((item) => {
-        let component = item['$'];
-        let { id } = component;
-        let content = decodeComponentData(UIPackage[id],files);
-        console.log(id);
-        component['content'] = parseJSON2XML(content);
-        componentMap[id] = component;
-    })
-    // fs.writeFileSync("test/2.json", JSON.stringify(componentMap));
-    createFileByData(componentMap, ".xml");
+    if (componentInfo) {
+        if (!Array.isArray(componentInfo)) componentInfo = [componentInfo];
+        let componentMap = {};
+        componentInfo.forEach((item) => {
+            let component = item['$'];
+            let { id } = component;
+            let content = decodeComponentData(UIPackage[id], files);
+            console.log(id);
+            component['content'] = parseJSON2XML(content);
+            componentMap[id] = component;
+        })
+        createFileByData(componentMap, ".xml");
+    }
     debugger;
-    let path = resolve(tempPath);
-    let tempfiles = fs.readdirSync(path);
-    tempfiles.forEach((file) => {
-        fs.unlinkSync(path + '/' + file);
-    });
-    fs.rmdirSync(path);
+    deleteTemp(tempPath);
+}
+
+function deleteTemp(path) {
+    path = resolve(path);
+    if (exists(path)) {
+        let tempfiles = fs.readdirSync(path);
+        if (tempfiles) {
+            tempfiles.forEach((file) => {
+                fs.unlinkSync(path + '/' + file);
+            });
+        }
+        fs.rmdirSync(path);
+    }
 }
 
 function decodeFontData(id, sprites, files) {
@@ -598,7 +686,7 @@ function decodeFontData(id, sprites, files) {
 
     rawData.seek(0, 1);
 
-    var mainTexture;
+    let mainTexture;
     let mainSprite = sprites[id];
     // if (mainSprite)
     //     mainTexture = mainSprite.atlas;
@@ -671,11 +759,11 @@ function decodeMovieclipData(id, _sprites, files) {
 
     rawData.seek(0, 1);
 
-    var frameCount = rawData.readShort();
+    let frameCount = rawData.readShort();
     pi.frames = frameCount;
 
-    // var spriteId;
-    // var sprite;
+    // let spriteId;
+    // let sprite;
     let movieclip = {
         "movieclip": {
             "$": {
@@ -689,8 +777,8 @@ function decodeMovieclipData(id, _sprites, files) {
         }
     };
 
-    for (var i = 0; i < frameCount; i++) {
-        var nextPos = rawData.readShort();
+    for (let i = 0; i < frameCount; i++) {
+        let nextPos = rawData.readShort();
         nextPos += rawData.pos;
 
         let frame = {};
@@ -706,7 +794,7 @@ function decodeMovieclipData(id, _sprites, files) {
         // spriteId = rawData.readS();
 
         // if (spriteId != null && (sprite = _sprites[spriteId]) != null) {
-        // var atlas = data.getItemAsset(sprite.atlas);
+        // let atlas = data.getItemAsset(sprite.atlas);
         // frame.texture = new egret.Texture();
         // frame.texture.bitmapData = atlas.bitmapData;
         // frame.texture.$initData(atlas.$bitmapX + sprite.rect.x, atlas.$bitmapY + sprite.rect.y,
@@ -722,7 +810,7 @@ function decodeMovieclipData(id, _sprites, files) {
     return movieclip;
 }
 
-function decodeComponentData(contentItem,files) {
+function decodeComponentData(contentItem, files) {
     let { rawData, objectType } = contentItem;
     let pi = { "children": [], objectType };
     rawData.seek(0, 0);
@@ -755,10 +843,10 @@ function decodeComponentData(contentItem,files) {
     }
 
     // overflow
-    var overflow = rawData.readByte();
+    let overflow = rawData.readByte();
     pi.overflow = overflow;
     if (overflow == 2) { // 2
-        var savedPos = rawData.pos;
+        let savedPos = rawData.pos;
         rawData.seek(0, 7);
         pi.scroll = setupScroll(rawData);
         rawData.pos = savedPos;
@@ -771,7 +859,7 @@ function decodeComponentData(contentItem,files) {
     rawData.seek(0, 1);
 
     //controller
-    var controllerCount = rawData.readShort();
+    let controllerCount = rawData.readShort();
     pi.controllers = [];
     for (let i = 0; i < controllerCount; i++) {
         nextPos = rawData.readShort();
@@ -784,9 +872,9 @@ function decodeComponentData(contentItem,files) {
 
     rawData.seek(0, 2);
 
-    var childCount = rawData.readShort();
+    let childCount = rawData.readShort();
     for (let i = 0; i < childCount; i++) {
-        var child = {};
+        let child = {};
         let dataLen = rawData.readShort();
         curPos = rawData.pos;
 
@@ -798,21 +886,23 @@ function decodeComponentData(contentItem,files) {
         let pkgId = rawData.readS(); // use src
         child.type = type;
         child.src = src;
-        var packageItem = null;
+        let packageItem = null;
 
         if (src != null) {
             packageItem = UIPackage[src];
             if (packageItem) { // GComponent
                 child.objectType = packageItem.objectType;
-            }else{ // atlas image
+                let file = getObjectById(files, "id", src);
+                if (file) child.file = file.name;
+            } else { // altas && image
                 packageItem = files[src];
+                child.file = packageItem.name;
             }
             child.path = packageItem.path;
-            child.file = packageItem.file;
             child.packageItemType = packageItem.type;
         }
 
-        
+
 
         child.beforeContent = setup_beforeAdd(child.type, rawData, curPos) // setup_beforeAdd
         pi.children.push(child);
@@ -858,7 +948,7 @@ function decodeComponentData(contentItem,files) {
 
     rawData.skip(2); //customData
     pi.opaque = rawData.readBool();
-    var maskId = rawData.readShort();
+    let maskId = rawData.readShort();
     if (maskId != -1) {
         pi.maskId = maskId;
         pi.reversedMask = rawData.readBool(); //reversedMask
@@ -876,13 +966,13 @@ function decodeComponentData(contentItem,files) {
 
     rawData.seek(0, 5);
 
-    var transitionCount = rawData.readShort();
+    let transitionCount = rawData.readShort();
     pi.transitions = [];
     for (i = 0; i < transitionCount; i++) {
         nextPos = rawData.readShort();
         nextPos += rawData.pos;
 
-        var trans = transitionSetup(rawData);
+        let trans = transitionSetup(rawData);
         pi.transitions.push(trans);
 
         rawData.pos = nextPos;
@@ -998,7 +1088,7 @@ function decodeTextInputBefore(rawData, position) {
     let data = {};
     rawData.seek(position, 4);
 
-    var str = rawData.readS();
+    let str = rawData.readS();
     if (str != null)
         data.promptText = str;
 
@@ -1006,7 +1096,7 @@ function decodeTextInputBefore(rawData, position) {
     if (str != null)
         data.restrict = str;
 
-    var iv = rawData.readInt();
+    let iv = rawData.readInt();
     if (iv != 0)
         data.maxLength = iv;
     iv = rawData.readInt();
@@ -1064,10 +1154,10 @@ function decodeGroupBefore(rawData, position) {
     return data;
 }
 
-function decodeListBefore(rawData, position) {
+function decodeListBefore(rawData, position, treeView = false) {
     let data = { "margin": {} };
     rawData.seek(position, 5);
-    var i1;
+    let i1;
 
     data.layout = rawData.readByte();
     data.selectionMode = rawData.readByte();
@@ -1090,9 +1180,9 @@ function decodeListBefore(rawData, position) {
         data.margin.right = rawData.readInt();
     }
 
-    var overflow = rawData.readByte();
-    if (overflow == 2) {
-        var savedPos = rawData.pos;
+    data.overflow = rawData.readByte();
+    if (data.overflow == 2) {
+        let savedPos = rawData.pos;
         rawData.seek(position, 7);
         data.scroll = setupScroll(rawData);
         rawData.pos = savedPos;
@@ -1109,16 +1199,18 @@ function decodeListBefore(rawData, position) {
     rawData.seek(position, 8);
 
     data.defaultItem = rawData.readS();
-    data.items = readListItems(rawData);
+    data.items = readItems(rawData, data, treeView);
     return data;
 }
 
-function readListItems(buffer) {
-    let data = {};
-    var cnt;
-    var i;
-    var nextPos;
-    var str;
+function readItems(buffer, list, treeView) {
+    let data = [];
+    let cnt;
+    let i;
+    let nextPos;
+    let str;
+    var isFolder;
+    var level;
 
     cnt = buffer.readShort();
     for (i = 0; i < cnt; i++) {
@@ -1127,26 +1219,86 @@ function readListItems(buffer) {
 
         str = buffer.readS();
         if (str == null) {
-            str = this.defaultItem;
+            str = list.defaultItem;
             if (!str) {
                 buffer.pos = nextPos;
                 continue;
             }
         }
-        debugger;
-        // var obj = this.getFromPool(str);
-        // if (obj) {
-        //     this.addChild(obj);
-        //     this.setupItem(buffer, obj);
-        // }
+        if (treeView) {
+            isFolder = buffer.readBool();
+            level = buffer.readByte();
+        }
+        // debugger;
+        let id = str.replace(`ui://${pkgId}`, '');
+        // let pkg = UIPackage[id];
+        let obj = { id, buffer };
+        let item;
+        if (obj) {
+            item = setupItem(buffer, id);
+        }
+        // item.isFolder = isFolder; // wait for extension
+        item.level = level;
+        data.push(item);
 
         buffer.pos = nextPos;
     }
     return data;
 }
 
+function setupItem(buffer, id) {
+    let pkg = UIPackage[id];
+    let data = {};
+    let str;
+
+    str = buffer.readS();
+    if (str != null)
+        data.title = str;
+    str = buffer.readS();
+    if (str != null && pkg.objectType == 12) // GButton
+        data.selectedTitle = str;
+    str = buffer.readS();
+    if (str != null)
+        data.icon = str;
+    str = buffer.readS();
+    if (str != null && pkg.objectType == 12)// GButton
+        data.selectedIcon = str;
+    str = buffer.readS();
+    if (str != null)
+        data.name = str;
+
+    let cnt;
+    let i;
+
+    if (pkg.objectType == 9) { // GComponent todo
+        debugger;
+        cnt = buffer.readShort();
+        for (i = 0; i < cnt; i++) {
+            let cc = obj.getController(buffer.readS());
+            str = buffer.readS();
+            if (cc)
+                cc.selectedPageId = str;
+        }
+
+        if (buffer.version >= 2) {
+            cnt = buffer.readShort();
+            debugger;
+            for (i = 0; i < cnt; i++) {
+                let target = buffer.readS();
+                let propertyId = buffer.readShort();
+                let value = buffer.readS();
+                let obj2 = obj.getChildByPath(target);
+                if (obj2)
+                    obj2.setProp(propertyId, value);
+            }
+        }
+    }
+    return data;
+}
+
+
 function decodeTreeBefore(rawData, position) {
-    let list = decodeListBefore(rawData, position);
+    let list = decodeListBefore(rawData, position, true);
     let data = {};
     rawData.seek(position, 9);
 
@@ -1159,7 +1311,7 @@ function decodeTextFieldAfter(rawData, position) {
     let data = {};
     rawData.seek(position, 6);
 
-    var str = rawData.readS();
+    let str = rawData.readS();
     if (str != null)
         data.text = str;
     return data;
@@ -1203,18 +1355,18 @@ function transitionSetup(buffer) {
     data.autoPlayTimes = buffer.readInt();
     data.autoPlayDelay = buffer.readFloat();
 
-    var cnt = buffer.readShort();
-    for (var i = 0; i < cnt; i++) {
-        var dataLen = buffer.readShort();
-        var curPos = buffer.pos;
+    let cnt = buffer.readShort();
+    for (let i = 0; i < cnt; i++) {
+        let dataLen = buffer.readShort();
+        let curPos = buffer.pos;
 
         buffer.seek(curPos, 0);
         let type = buffer.readByte();
-        var item = { type, value: {} };
+        let item = { type, value: {} };
         data.items[i] = item;
 
         item.time = buffer.readFloat();
-        var targetId = buffer.readShort();
+        let targetId = buffer.readShort();
         if (targetId < 0)
             item.targetId = "";
         else
@@ -1243,12 +1395,12 @@ function transitionSetup(buffer) {
             decodeValue(item, buffer, item.tweenConfig.endValue);
 
             if (buffer.version >= 2) {
-                var pathLen = buffer.readInt();
+                let pathLen = buffer.readInt();
                 if (pathLen > 0) {
                     item.tweenConfig.path = {};
-                    var pts = [];
-                    for (var j = 0; j < pathLen; j++) {
-                        var curveType = buffer.readByte();
+                    let pts = [];
+                    for (let j = 0; j < pathLen; j++) {
+                        let curveType = buffer.readByte();
                         switch (curveType) {
                             case 1:
                                 pts.push({
@@ -1371,20 +1523,20 @@ function decodeValue(item, buffer, value) {
 
 function relationSetup(buffer, parentToChild) {
     let data = { "items": [] };
-    var cnt = buffer.readByte();
-    for (var i = 0; i < cnt; i++) {
-        var targetIndex = buffer.readShort();
-        var newItem = { "relations": [], targetIndex };
+    let cnt = buffer.readByte();
+    for (let i = 0; i < cnt; i++) {
+        let targetIndex = buffer.readShort();
+        let newItem = { "relations": [], targetIndex };
         if (targetIndex != -1) {
             newItem.targetIndex = targetIndex;
             newItem.parentToChild = parentToChild;
         }
         data.items.push(newItem);
 
-        var cnt2 = buffer.readByte();
-        for (var j = 0; j < cnt2; j++) {
-            var rt = buffer.readByte();
-            var usePercent = buffer.readBool();
+        let cnt2 = buffer.readByte();
+        for (let j = 0; j < cnt2; j++) {
+            let rt = buffer.readByte();
+            let usePercent = buffer.readBool();
             let relation = { rt, usePercent };
             newItem.relations.push(relation);
         }
@@ -1393,11 +1545,11 @@ function relationSetup(buffer, parentToChild) {
 }
 
 function setupScroll(buffer) {
-    let data = { "maskContainer": {}, "scrollBarMargin": {} };
+    let data = { "scrollBarMargin": {} };
     data.scrollType = buffer.readByte();
-    var scrollBarDisplay = buffer.readByte();
-    var flags = buffer.readInt();
-
+    let scrollBarDisplay = buffer.readByte();
+    let flags = buffer.readInt();
+    data.flags = flags;
     if (buffer.readBool()) {
         data.scrollBarMargin.top = buffer.readInt();
         data.scrollBarMargin.bottom = buffer.readInt();
@@ -1405,84 +1557,36 @@ function setupScroll(buffer) {
         data.scrollBarMargin.right = buffer.readInt();
     }
 
-    var vtScrollBarRes = buffer.readS();
-    var hzScrollBarRes = buffer.readS();
-    var headerRes = buffer.readS();
-    var footerRes = buffer.readS();
+    data.vtScrollBarRes = buffer.readS();
+    data.hzScrollBarRes = buffer.readS();
+    data.headerRes = buffer.readS();
+    data.footerRes = buffer.readS();
 
-    if ((flags & 1) != 0) data.displayOnLeft = true;
-    if ((flags & 2) != 0) data.snapToItem = true;
-    if ((flags & 4) != 0) data.displayInDemand = true;
-    if ((flags & 8) != 0) data.pageMode = true;
-    if (flags & 16)
-        data.touchEffect = true;
-    else if (flags & 32)
-        data.touchEffect = false;
-    else
-        data.touchEffect = true;
-    if (flags & 64)
-        data.bouncebackEffect = true;
-    else if (flags & 128)
-        data.bouncebackEffect = false;
-    else
-        data.bouncebackEffect = true;
+    // if ((flags & 1) != 0) data.displayOnLeft = true;
+    // if ((flags & 2) != 0) data.snapToItem = true;
+    // if ((flags & 4) != 0) data.displayInDemand = true;
+    // if ((flags & 8) != 0) data.pageMode = true;
+    // if (flags & 16)
+    //     data.touchEffect = true;
+    // else if (flags & 32)
+    //     data.touchEffect = false;
+    // else
+    //     data.touchEffect = true;
+    // if (flags & 64)
+    //     data.bouncebackEffect = true;
+    // else if (flags & 128)
+    //     data.bouncebackEffect = false;
+    // else
+    //     data.bouncebackEffect = true;
 
-    if ((flags & 256) != 0) data.inertiaDisabled = true;
-    if ((flags & 512) == 0) data.maskContainer.clipRect = {};
-    if ((flags & 1024) != 0) data.floating = true;
-    if ((flags & 2048) != 0) data.dontClipMargin = true;
+    // if ((flags & 256) != 0) data.inertiaDisabled = true;
+    // if ((flags & 512) == 0) data.maskContainer.clipRect = {};
+    // if ((flags & 1024) != 0) data.floating = true;
+    // if ((flags & 2048) != 0) data.dontClipMargin = true;
 
-    if (scrollBarDisplay == 0)
-        scrollBarDisplay = 1;
-
-    if (scrollBarDisplay != 3) {
-        if (data.scrollType == 2 || data.scrollType == 1) {
-            var res = vtScrollBarRes ? vtScrollBarRes : null; // UIConfig.verticalScrollBar
-            if (res) {
-                data.vtScrollBar = res;
-                // if (!data.vtScrollBar)
-                //     throw "cannot create scrollbar} from " + res;
-                // data.vtScrollBar.setScrollPane(this, true);
-                // data.owner.displayObject.addChild(data.vtScrollBar.displayObject);
-            }
-        }
-        if (data.scrollType == 2 || data.scrollType == 0) {
-            res = hzScrollBarRes ? hzScrollBarRes : null; // UIConfig.horizontalScrollBar
-            if (res) {
-                data.hzScrollBar = res;
-                if (!data.hzScrollBar)
-                    throw "cannot create scrollbar} from " + res;
-                // data.hzScrollBar.setScrollPane(this, false);
-                // data.owner.displayObject.addChild(data.hzScrollBar.displayObject);
-            }
-        }
-
-        if (scrollBarDisplay == 2)
-            data.scrollBarDisplayAuto = true;
-        if (data.scrollBarDisplayAuto) {
-            // if (data.vtScrollBar)
-            //     data.vtScrollBar.displayObject.visible = false;
-            // if (data.hzScrollBar)
-            //     data.hzScrollBar.displayObject.visible = false;
-        }
-    }
-    else
-        data.mouseWheelEnabled = false;
-
-    if (headerRes) {
-        data.header = UIPackage.createObjectFromURL(headerRes);
-        if (!data.header)
-            throw new Error("cannot create scrollPane header from " + headerRes);
-    }
-
-    if (footerRes) {
-        data.footer = footerRes;
-        // if (!data.footer)
-        //     throw new Error("cannot create scrollPane footer from " + footerRes);
-    }
-
-    if (data.header || data.footer)
-        data.refreshBarAxis = (data.scrollType == 2 || data.scrollType == 1) ? "y" : "x";
+    // if (scrollBarDisplay == 0)
+    //     scrollBarDisplay = 1;
+    data.scrollBarDisplay = scrollBarDisplay;
 
     return data;
 }
@@ -1491,9 +1595,9 @@ function gearSetup(buffer, gearType) {
     let gearName = GearType[gearType];
     let data = { "pages": [], gearName };
     data.controllerId = buffer.readShort(); //  controller id
-    var i;
-    var page, status;
-    var cnt = buffer.readShort();
+    let i;
+    let page, status;
+    let cnt = buffer.readShort();
     data.status = [];
     data.extStatus = [];
     // todo
@@ -1571,8 +1675,7 @@ function addStatus(type, page, buffer) {
             data.strokeColor = buffer.readColor();
             break;
         case "gearText":
-            data.color = buffer.readColor();
-            data.strokeColor = buffer.readColor();
+            data.default = buffer.readS();
             break;
         case "gearXY":
             data.x = buffer.readInt();
@@ -1770,11 +1873,11 @@ function decodeComboBoxAfter(rawData, position) {
     if (rawData.readByte() != 13)
         return;
 
-    var i;
-    var iv;
-    var nextPos;
-    var str;
-    var itemCount = rawData.readShort();
+    let i;
+    let iv;
+    let nextPos;
+    let str;
+    let itemCount = rawData.readShort();
     for (i = 0; i < itemCount; i++) {
         nextPos = rawData.readShort();
         nextPos += rawData.pos;
@@ -1846,7 +1949,7 @@ function decodeLabelAfter(rawData, position) {
     if (rawData.readByte() != 11)
         return;
 
-    var str;
+    let str;
     str = rawData.readS();
     if (str != null)
         data.title = str;
@@ -1855,12 +1958,12 @@ function decodeLabelAfter(rawData, position) {
         data.icon = str;
     if (rawData.readBool())
         data.titleColor = rawData.readColor();
-    var iv = rawData.readInt();
+    let iv = rawData.readInt();
     if (iv != 0)
         data.titleFontSize = iv;
 
     if (rawData.readBool()) {
-        var input = data.getTextField();
+        let input = data.getTextField();
         if (input instanceof GTextInput) {
             str = rawData.readS();
             if (str != null)
@@ -1897,8 +2000,8 @@ function decodeButtonAfter(rawData, position) {
 
     if (rawData.readByte() != 12)
         return;
-    var str;
-    var iv;
+    let str;
+    let iv;
 
     str = rawData.readS();
     if (str != null)
@@ -1937,7 +2040,7 @@ function decodeListAfter(rawData, position) {
     let data = {};
     rawData.seek(position, 6);
 
-    var i = rawData.readShort();
+    let i = rawData.readShort();
     if (i != -1)
         data.selectionController = i;
     return data;
@@ -1966,12 +2069,12 @@ function parseFont(font) {
 }
 
 function setupController(buffer) {
-    var controller = {
+    let controller = {
         "pageIds": [],
         "pageNames": [],
         "selected": []
     };
-    var beginPos = buffer.pos;
+    let beginPos = buffer.pos;
     buffer.seek(beginPos, 0);
 
     controller.name = buffer.readS();
@@ -1980,18 +2083,18 @@ function setupController(buffer) {
 
     buffer.seek(beginPos, 1);
 
-    var i;
-    var nextPos;
-    var cnt = buffer.readShort();
+    let i;
+    let nextPos;
+    let cnt = buffer.readShort();
 
     for (i = 0; i < cnt; i++) {
         controller.pageIds.push(buffer.readS());
         controller.pageNames.push(buffer.readS());
     }
 
-    var homePageIndex = 0;
+    let homePageIndex = 0;
     if (buffer.version >= 2) {
-        var homePageType = buffer.readByte();
+        let homePageType = buffer.readByte();
         switch (homePageType) {
             case 1: // "specific"
                 homePageIndex = buffer.readShort();
@@ -2003,9 +2106,9 @@ function setupController(buffer) {
                     homePageIndex = 0;
                 break;
 
-            case 3: // "variable"
+            case 3: // "letiable"
                 // todo
-                homePageIndex = controller.pageNames.indexOf(UIPackage.getVar(buffer.readS()));
+                homePageIndex = controller.pageNames.indexOf(UIPackage.getlet(buffer.readS()));
                 if (homePageIndex == -1)
                     homePageIndex = 0;
                 break;
@@ -2060,20 +2163,20 @@ function decodeGObjectAfter(rawData, position) {
     let data = {};
     rawData.seek(position, 1);
 
-    var str = rawData.readS();
+    let str = rawData.readS();
     if (str)
         data.tooltips = str;
 
-    var groupId = rawData.readShort();
+    let groupId = rawData.readShort();
     if (groupId >= 0)
         data.group = groupId;
 
     rawData.seek(position, 2);
 
-    var cnt = rawData.readShort();
+    let cnt = rawData.readShort();
     data.gears = [];
-    for (var i = 0; i < cnt; i++) {
-        var nextPos = rawData.readShort();
+    for (let i = 0; i < cnt; i++) {
+        let nextPos = rawData.readShort();
         nextPos += rawData.pos;
 
         data.gearType = rawData.readByte();
@@ -2089,7 +2192,7 @@ function decodeGObjectBefore(rawData, position) {
     rawData.seek(position, 0);
     rawData.skip(5);
 
-    var f1;
+    let f1;
     data.id = rawData.readS();
     data.name = rawData.readS();
     // position 
@@ -2142,7 +2245,7 @@ function decodeGObjectBefore(rawData, position) {
         data.touchable = false;
     if (rawData.readBool())
         data.grayed = true;
-    var bm = rawData.readByte();
+    let bm = rawData.readByte();
     const BlendModeTranslate = {
         0: "NormalBlending",
         1: "NoBlending",
@@ -2152,14 +2255,14 @@ function decodeGObjectBefore(rawData, position) {
     }
     data.blendMode = BlendModeTranslate[bm] || "NormalBlending";
 
-    var filter = rawData.readByte();
+    let filter = rawData.readByte();
     if (filter == 1) {
         //todo set filter
         // ToolSet.setColorFilter(data.displayObject,
         //     [rawData.readFloat(), rawData.readFloat(), rawData.readFloat(), rawData.readFloat()]);
     }
 
-    var str = rawData.readS();
+    let str = rawData.readS();
     if (str != null)
         data.data = str;
     return data;
@@ -2200,7 +2303,7 @@ function constructButton(buffer) {
         Radio
      */
     data.mode = buffer.readByte();
-    var str = buffer.readS();
+    let str = buffer.readS();
     if (str)
         data.sound = str;
     data.soundVolumeScale = buffer.readFloat();
@@ -2499,7 +2602,7 @@ const parseJSON2XML = (json) => {
     let base = {
         "component": {
             "$": {},
-            "controler": [],
+            "controller": [],
             "displayList": {
 
             }
@@ -2520,9 +2623,9 @@ const parseJSON2XML = (json) => {
     if (hitTestId) {
         $['hitTestId'] = hitTestId; // todo
     }
-    let controler = parseControllers(controllers);
-    if (controler) {
-        component['controler'] = controler;
+    let controller = parseControllers(controllers);
+    if (controller) {
+        component['controller'] = controller;
     }
     if (children) {
         component['displayList'] = parseDisplayList(children, json);
@@ -2531,13 +2634,12 @@ const parseJSON2XML = (json) => {
     let xml = json2xml(base);
     xml = xml.replace(/_{\$(\w+)}_/g, "");
     console.log(xml);
-    // debugger;
     return xml;
 }
 
 function parseControllers(controllers) {
-    return controllers.map((controler) => {
-        let { name, selected, pageIds, pageNames } = controler;
+    return controllers.map((controller) => {
+        let { name, selected, pageIds, pageNames } = controller;
         let pages = "";
         pageIds.forEach((pageId, idx, arr) => {
             if (idx == arr.length - 1) {
@@ -2556,242 +2658,46 @@ function parseDisplayList(children, parent) {
         // "_{$1}_image": [],
     };
     children.forEach((child, idx) => {
-        let { type, src, content, relations, path,packageItemType,file } = child;
+        let { type, src, content, relations, path, packageItemType, file } = child;
         let objectType = ObjectType[type];
-        let { width, height, id, name, x, y, gears, grayed, align, valign, group, fill, touchable } = content;
+        let { width, height,
+            id, name,
+            x, y,
+            gears, grayed,
+            group, touchable,
+            visible } = content;
         let size = `${width},${height}` != "undefined,undefined" ? `${width},${height}` : null;
         let xy = `${x},${y}`;
         let fileName;
-        let objectData = {}, extensionData;
-        switch (objectType) {
-            case "Image":
-                console.log(content);
-                let { image } = content;
-                let { fillMethod, fillOrigin, fillClockwise, fillAmount } = image;
-                if (fillMethod != 0) objectData.fillMethod = fillMethodType[fillMethod]
-                // debugger;
-                break;
-            case "MovieClip":
-                let { movieClip } = content;
-                let { frame, graphics, playing } = movieClip;
-                objectData.frame = frame;
-                console.log(content);
-                // debugger;
-                break;
-            case "Graph":
-                let { shape } = content;
-                let { lineSize, lineColor, fillColor } = shape;
-                objectData.type = GraphType[shape.type];
-                if (lineSize != 1) objectData.lineSize = lineSize; // default
-                if (lineSize != 0) {
-                    objectData.lineColor = lineColor;
-                }
-                objectData.fillColor = fillColor;
-                break;
-            case "Text":
-                let { textField, singleLine, autoSize, text } = content;
-                let { textFormat } = textField;
-                objectData.fontSize = textFormat.size;
-                objectData.color = textFormat.color == "#000000" ? null : textFormat.color;
-                objectData.align = align;
-                objectData.valign = valign;
-                objectData.autoSize = AutoSizeType[autoSize];
-                if (singleLine) objectData.singleLine = singleLine;
-                objectData.text = text || "";
-                break;
-            case "Component":
-                let { type } = content;
-                let extensionName = ObjectType[type];
-                switch (extensionName) {
-                    case "ProgressBar":
-                        let { value, max } = content;
-                        extensionData = {};
-                        extensionData[extensionName] = {
-                            "$": { value, max }
-                        };
-                        break;
-                    case "Button":
-                        extensionData = {};
-                        let { selected } = content;
-                        if (selected) {
-                            extensionData[extensionName] = {
-                                "$": { "checked": selected }
-                            };
-                        }
-                        break;
-                    default:
-                        console.log(extensionName);
-                        // debugger;
-                        break;
-                }
-                break;
-            case "Loader":
-                objectData.align = align;
-                objectData.valign = valign;
-                objectData.fill = fill;
-                break
-            case "List":
-                // debugger;
-                break;
-            default:
-                console.log(objectType, content);
-                // debugger;
-                break;
-        }
+        let GObjectData = parseObject(objectType, content);
+        let { objectData, extensionData, item } = GObjectData;
         if (src) {
             let fileExt = PackageItemType[packageItemType];
-            if(!fileExt){
+            if (!fileExt) {
                 throw new Error("PackageItemType undefined!!");
             }
-            
-            if(fileExt == "Sound"){
+
+            if (fileExt == "Sound") {
                 fileName = path.slice(0, 1) + file;
-            }else{
-                fileName = path.slice(0, 1) + child.name + fileExt;
+            } else {
+                fileName = path.slice(0, 1) + file + fileExt;
             }
         }
         let originData = {
-            "$": { id, name, src, fileName, xy, size, touchable, grayed, group }
+            "$": { id, name, src, fileName, xy, size, touchable, grayed, group, visible }
         };
-        Object.assign(originData["$"], objectData);
-        if (extensionData) {
-            Object.assign(originData, extensionData);
-        }
+        if (objectData) Object.assign(originData["$"], objectData);
+        if (extensionData) Object.assign(originData, extensionData);
 
         // gear
-        let gearObject = {};
         if (gears.length > 0) {
-            gears.forEach((gear) => {
-                let { controllerId, pages, gearName, status, extStatus, defaultValues, defaultExtStatus, tweenConfig, positionsInPercent, condition } = gear;
-
-                let defaultStr;
-                let values = status.map((item, idx) => {
-                    let value = "-";
-                    switch (gearName) {
-                        case "gearXY":
-                            if (!isEmptyObject(item)) {
-                                let { x, y } = item;
-                                value = `${x},${y}`;
-                                if (positionsInPercent) {
-                                    let = { px, py } = extStatus[idx];
-                                    value += `${px},${py}`;
-                                }
-                            }
-                            if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
-                                let { x, y } = defaultValues;
-                                defaultStr = `${x},${y}`;
-                                if (positionsInPercent) {
-                                    let = { px, py } = defaultExtStatus[idx];
-                                    defaultStr += `${px},${py}`;
-                                }
-                            }
-                            break;
-                        case "gearSize":
-                            if (!isEmptyObject(item)) {
-                                let { width, height, scaleX, scaleY } = item;
-                                value = `${width},${height},${changeTwoDecimal(scaleX)},${changeTwoDecimal(scaleY)}`;
-                            }
-                            if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
-                                let { width, height, scaleX, scaleY } = defaultValues;
-                                defaultStr = `${width},${height},${changeTwoDecimal(scaleX)},${changeTwoDecimal(scaleY)}`;
-                            }
-                            break;
-                        case "gearLook":
-                            if (!isEmptyObject(item)) {
-                                let { alpha, rotation, grayed, touchable } = item;
-                                value = `${changeTwoDecimal(alpha)},${rotation},${+grayed},${+touchable}`;
-                            }
-                            if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
-                                let { alpha, rotation, grayed, touchable } = defaultValues;
-                                defaultStr = `${changeTwoDecimal(alpha)},${rotation},${+grayed},${+touchable}`;
-                            }
-                            break;
-                        case "gearColor":
-                            if (!isEmptyObject(item)) {
-                                let { color, strokeColor } = item;
-                                if (strokeColor == "rgb(0,0,0)") strokeColor = null;
-                                value = `${rgbaToHex(color, false)},${rgbaToHex(strokeColor, false)}`;
-                            }
-                            if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
-                                let { color, strokeColor } = defaultValues;
-                                if (strokeColor == "rgb(0,0,0)") strokeColor = null;
-                                defaultStr = `${rgbaToHex(color, false)},${rgbaToHex(strokeColor, false)}`;
-                            }
-                            break;
-                        case "gearAni":
-                            if (!isEmptyObject(item)) {
-                                let { frame, playing } = item;
-                                value = `${frame},${playing ? "p" : "s"}`;
-                            }
-                            if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
-                                let { frame, playing } = defaultValues;
-                                defaultStr = `${frame},${playing ? "p" : "s"}`;
-                            }
-                            break;
-                        case "gearFontSize":
-                            if (!isEmptyObject(item)) {
-                                value = `${item.default}`;
-                            }
-                            if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
-                                defaultStr = `${item.default}`;
-                            }
-                            break;
-                        default:
-                            debugger;
-                            break;
-                    }
-                    if (value && value.endsWith(',')) {
-                        value = value.slice(0, value.length - 1);
-                    }
-                    if (defaultStr && defaultStr.endsWith(',')) {
-                        defaultStr = defaultStr.slice(0, defaultStr.length - 1);
-                    }
-                    return value;
-                });
-
-                if (values.length == 0) {
-                    values = null;
-                } else {
-                    values = values.join("|");
-                }
-
-                gearObject[gearName] = {
-                    "$": {
-                        "controller": controllers[controllerId]['name'],
-                        "pages": pages.join(","),
-                        values,
-                        condition,
-                        "default": defaultStr
-
-                    }
-                }
-
-                if (tweenConfig && tweenConfig.tween) {
-                    let { ease, delay, duration, tween } = tweenConfig;
-                    if (ease != 5) {
-                        ease = easeType[ease];
-                    } else {
-                        ease = null;
-                    }
-                    duration = duration.toFixed(1);
-                    if (duration == "0.3") duration = null;
-                    if (delay === 0) {
-                        delay = null;
-                    } else {
-                        delay = delay.toString().replace("0.", ".");
-                    }
-                    Object.assign(gearObject[gearName]['$'], { tween, ease, duration, delay });
-                }
-            })
-
+            let gearObject = parseGear(gears, controllers);
+            Object.assign(originData, gearObject);
         }
 
-        Object.assign(originData, gearObject);
-
-
         // relation
-        let relation = [];
         if (relations && relations.items) {
+            let relation = [];
             relations.items.forEach((item) => {
                 let $ = { "target": "", "sidePair": "" };
                 let targetIndex = item.targetIndex;
@@ -2809,14 +2715,300 @@ function parseDisplayList(children, parent) {
                 }
                 relation.push({ $ });
             })
-        }
-        if (relation) {
             Object.assign(originData, { relation });
         }
-
+        if (objectType === "Tree") objectType = "List";
         displayList[`_{$${idx}}_${objectType.toLocaleLowerCase()}`] = originData;
+        if (item) {
+            displayList[`_{$${idx}}_${objectType.toLocaleLowerCase()}`]['item'] = item;
+        }
+        packageItemMap[id] = { originData, parent };
     })
     return displayList;
+}
+
+function parseObject(objectType, content) {
+    let { align, valign, items } = content;
+    let objectData = {}, extensionData, item;
+    switch (objectType) {
+        case "Image":
+            {
+                let { image, flip } = content;
+                if (!image) image = {};
+                let { fillMethod, fillOrigin, fillClockwise, fillAmount } = image;
+                if (fillMethod) objectData.fillMethod = fillMethodType[fillMethod];
+                if (fillOrigin) objectData.fillOrigin = FillOrigin[fillOrigin];
+                objectData.fillClockwise = fillClockwise;
+                objectData.fillAmount = fillAmount;
+                if (flip) objectData.flip = FlipType[flip];
+            }
+            break;
+        case "MovieClip":
+            let { movieClip, color } = content;
+            if (!movieClip) movieClip = {};
+            let { frame, playing } = movieClip;
+            if (frame) objectData.frame = frame;
+            if (!playing) objectData.playing = playing;
+            if (color) objectData.color = color;
+            break;
+        case "Graph":
+            {
+                let { shape } = content;
+                let { lineSize, lineColor,
+                    fillColor, cornerRadius,
+                    distances, sides,
+                    startAngle } = shape;
+                if (!shape) shape = {};
+                objectData.type = GraphType[shape.type];
+                if (lineSize != 1) objectData.lineSize = lineSize; // default
+                if (lineColor != "#ff000000") objectData.lineColor = lineColor;
+                if (fillColor != "#ffffffff") objectData.fillColor = fillColor;
+                if (cornerRadius) objectData.corner = `${cornerRadius[0]}`;
+                if (startAngle) objectData.startAngle = startAngle;
+                objectData.distances = distances;
+                objectData.sides = sides;
+            }
+            break;
+        case "Text":
+            {
+                let { textField, singleLine, autoSize, text } = content;
+                let { textFormat } = textField;
+                if (!textFormat) textFormat = {};
+                let { size, color } = textFormat;
+                objectData.fontSize = size;
+                objectData.color = color == "#000000" ? null : color;
+                objectData.align = align == "left" ? null : align;
+                objectData.valign = valign == "top" ? null : valign;
+                objectData.autoSize = AutoSizeType[autoSize];
+                if (singleLine) objectData.singleLine = singleLine;
+                objectData.text = text || "";
+            }
+            break;
+        case "Component":
+            let { type } = content;
+            let extensionName = ObjectType[type];
+            switch (extensionName) {
+                case "ProgressBar":
+                    let { value, max } = content;
+                    extensionData = {};
+                    extensionData[extensionName] = {
+                        "$": { value, max }
+                    };
+                    break;
+                case "Button":
+                    extensionData = {};
+                    let { selected } = content;
+                    if (selected) {
+                        extensionData[extensionName] = {
+                            "$": { "checked": selected }
+                        };
+                    }
+                    break;
+                default:
+                    console.log(extensionName);
+                    debugger;
+                    break;
+            }
+            break;
+        case "Loader":
+            {
+                let { shrinkOnly, url, fill } = content;
+                let loader = content.content;
+                if (!loader) loader = {};
+                let { fillMethod, frame, playing, fillOrigin, fillClockwise, fillAmount } = loader;
+                objectData.url = url;
+                if (fillMethod) objectData.fillMethod = fillMethodType[fillMethod];
+                if (fillOrigin) objectData.fillOrigin = FillOrigin[fillOrigin];
+                objectData.fillClockwise = fillClockwise;
+                objectData.fillAmount = fillAmount;
+                objectData.align = align == "left" ? null : align;
+                objectData.valign = valign == "top" ? null : valign;
+                if (fill) objectData.fill = LoaderFillType[fill];
+                if (shrinkOnly) objectData.shrinkOnly = shrinkOnly;
+                if (frame) objectData.frame = frame;
+                if (!playing) objectData.playing = playing;
+            }
+            break
+        case "List":
+            objectData = parseList(content);
+            item = [];
+            items.forEach((ele) => {
+                item.push({
+                    "$": ele
+                });
+            });
+            break;
+        case "Tree":
+            objectData = parseList(content);
+            objectData.treeView = true;
+            let { indent, clickToExpand } = content;
+            objectData.indent = indent;
+            objectData.clickToExpand = clickToExpand;
+            item = [];
+            items.forEach((ele) => {
+                item.push({
+                    "$": ele
+                });
+            });
+            break;
+        case "Group":
+            let { layout, lineGap, columnGap, excludeInvisibles, autoSizeDisabled, mainGridIndex } = content;
+            if (layout) objectData.layout = layout;
+            if (lineGap) objectData.lineGap = lineGap;
+            if (columnGap) objectData.columnGap = columnGap;
+            if (excludeInvisibles) objectData.excludeInvisibles = excludeInvisibles;
+            if (autoSizeDisabled) objectData.autoSizeDisabled = autoSizeDisabled;
+            if (mainGridIndex > -1) objectData.mainGridIndex = mainGridIndex;
+            break;
+        default:
+            console.log(objectType, content);
+            debugger;
+            break;
+    }
+    return { objectData, extensionData, item };
+}
+
+function parseGear(gears, controllers) {
+    let gearObject = {};
+    gears.forEach((gear) => {
+        let { controllerId, pages, gearName, status, extStatus, defaultValues, defaultExtStatus, tweenConfig, positionsInPercent, condition } = gear;
+        let defaultStr;
+        let values = status.map((item, idx) => {
+            let value = "-";
+            switch (gearName) {
+                case "gearXY":
+                    if (!isEmptyObject(item)) {
+                        let { x, y } = item;
+                        value = `${x},${y}`;
+                        if (positionsInPercent) {
+                            let = { px, py } = extStatus[idx];
+                            value += `${px},${py}`;
+                        }
+                    }
+                    if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
+                        let { x, y } = defaultValues;
+                        defaultStr = `${x},${y}`;
+                        if (positionsInPercent) {
+                            let = { px, py } = defaultExtStatus[idx];
+                            defaultStr += `${px},${py}`;
+                        }
+                    }
+                    break;
+                case "gearSize":
+                    if (!isEmptyObject(item)) {
+                        let { width, height, scaleX, scaleY } = item;
+                        value = `${width},${height},${changeTwoDecimal(scaleX)},${changeTwoDecimal(scaleY)}`;
+                    }
+                    if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
+                        let { width, height, scaleX, scaleY } = defaultValues;
+                        defaultStr = `${width},${height},${changeTwoDecimal(scaleX)},${changeTwoDecimal(scaleY)}`;
+                    }
+                    break;
+                case "gearLook":
+                    if (!isEmptyObject(item)) {
+                        let { alpha, rotation, grayed, touchable } = item;
+                        value = `${changeTwoDecimal(alpha)},${rotation},${+grayed},${+touchable}`;
+                    }
+                    if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
+                        let { alpha, rotation, grayed, touchable } = defaultValues;
+                        defaultStr = `${changeTwoDecimal(alpha)},${rotation},${+grayed},${+touchable}`;
+                    }
+                    break;
+                case "gearColor":
+                    if (!isEmptyObject(item)) {
+                        let { color, strokeColor } = item;
+                        if (strokeColor == "rgb(0,0,0)") strokeColor = null;
+                        value = `${rgbaToHex(color, false)},${rgbaToHex(strokeColor, false)}`;
+                    }
+                    if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
+                        let { color, strokeColor } = defaultValues;
+                        if (strokeColor == "rgb(0,0,0)") strokeColor = null;
+                        defaultStr = `${rgbaToHex(color, false)},${rgbaToHex(strokeColor, false)}`;
+                    }
+                    break;
+                case "gearAni":
+                    if (!isEmptyObject(item)) {
+                        let { frame, playing } = item;
+                        value = `${frame},${playing ? "p" : "s"}`;
+                    }
+                    if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
+                        let { frame, playing } = defaultValues;
+                        defaultStr = `${frame},${playing ? "p" : "s"}`;
+                    }
+                    break;
+                case "gearFontSize":
+                    if (!isEmptyObject(item)) {
+                        value = `${item.default}`;
+                    }
+                    if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
+                        defaultStr = `${item.default}`;
+                    }
+                    break;
+                case "gearIcon":
+                    if (!isEmptyObject(item)) {
+                        value = `${item.default}`;
+                    }
+                    if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
+                        defaultStr = `${item.default}`;
+                    }
+                    break;
+                case "gearText":
+                    if (!isEmptyObject(item)) {
+                        value = `${item.default}`;
+                    }
+                    if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
+                        defaultStr = `${item.default}`;
+                    }
+                    break;
+
+                default:
+                    debugger;
+                    break;
+            }
+            if (value && value.endsWith(',')) {
+                value = value.slice(0, value.length - 1);
+            }
+            if (defaultStr && defaultStr.endsWith(',')) {
+                defaultStr = defaultStr.slice(0, defaultStr.length - 1);
+            }
+            return value;
+        });
+
+        if (values.length == 0) {
+            values = null;
+        } else {
+            values = values.join("|");
+        }
+
+        gearObject[gearName] = {
+            "$": {
+                "controller": controllers[controllerId]['name'],
+                "pages": pages.join(","),
+                values,
+                condition,
+                "default": defaultStr
+
+            }
+        }
+
+        if (tweenConfig && tweenConfig.tween) {
+            let { ease, delay, duration, tween } = tweenConfig;
+            if (ease != 5) {
+                ease = easeType[ease];
+            } else {
+                ease = null;
+            }
+            duration = duration.toFixed(1);
+            if (duration == "0.3") duration = null;
+            if (delay === 0) {
+                delay = null;
+            } else {
+                delay = delay.toString().replace("0.", ".");
+            }
+            Object.assign(gearObject[gearName]['$'], { tween, ease, duration, delay });
+        }
+    });
+    return gearObject;
 }
 
 function parseExtension(type, extensionData) {
@@ -2848,6 +3040,52 @@ function parseExtension(type, extensionData) {
 
     return data;
 }
+
+function parseList(content) {
+    let objectData = {};
+    let { defaultItem,
+        align, valign,
+        overflow, scroll,
+        childrenRenderOrder, selectionMode,
+        autoResizeItem, scrollItemToViewOnClick,
+        foldInvisibleItems, layout,
+        lineGap, columnGap,
+        lineCount, columnCount,
+        selectionController } = content;
+    if (!scroll) scroll = {};
+    let { flags, scrollBarMargin,
+        footerRes, headerRes,
+        vtScrollBarRes, hzScrollBarRes,
+        scrollType, scrollBarDisplay } = scroll;
+
+
+    if (selectionMode) objectData.selectionMode = ListSelectionMode[selectionMode];
+    if (layout) objectData.layout = ListLayoutType[layout];
+    if (overflow) objectData.overflow = OverflowType[overflow];
+    objectData.scroll = ScrollType[scrollType];
+    if (flags) objectData.scrollBarFlags = flags;
+    if (scrollBarDisplay) objectData.scrollBar = ScrollBarDisplayType[scrollBarDisplay];
+    if (scrollBarMargin && !isEmptyObject(scrollBarMargin)) {
+        let { left, right, top, bottom } = scrollBarMargin;
+        objectData.scrollBarMargin = `${top},${bottom},${left},${right}`;
+    }
+    if (lineGap) objectData.lineGap = lineGap;
+    if (columnGap) objectData.columnGap = columnGap;
+    if (lineCount) objectData.lineCount = lineCount;
+    if (columnCount) objectData.columnCount = columnCount;
+    if (hzScrollBarRes || vtScrollBarRes) objectData.scrollBarRes = `${hzScrollBarRes ? hzScrollBarRes : ""},${vtScrollBarRes ? vtScrollBarRes : ""}`;
+    if (headerRes || footerRes) objectData.ptrRes = `${headerRes ? headerRes : ""},${footerRes ? footerRes : ""}`;
+    objectData.defaultItem = defaultItem;
+    objectData.align = align == "left" ? null : align;
+    objectData.valign = valign == "top" ? null : valign;
+    if (childrenRenderOrder) objectData.renderOrder = ChildrenRenderOrder[childrenRenderOrder];
+    if (!autoResizeItem) objectData.autoItemSize = autoResizeItem;
+    if (!scrollItemToViewOnClick) objectData.scrollItemToViewOnClick = scrollItemToViewOnClick;
+    if (foldInvisibleItems) objectData.foldInvisibleItems = foldInvisibleItems;
+    if (selectionController) objectData.selectionController = controllers[selectionController]['name'];
+    return objectData;
+}
+
 
 /** utils  */
 /**
@@ -2954,6 +3192,8 @@ const createFileByData = (data, ext) => {
     }
     console.log("finish createFileByData");
 }
+
+
 
 start(`${inputPath}${importFileName}.bin`);
 
