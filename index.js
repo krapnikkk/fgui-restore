@@ -854,7 +854,7 @@ function decodeComponentData(contentItem, files) {
         pi.controllers.push(controller);
         rawData.pos = nextPos;
     }
-
+    // let self = setup_beforeAdd(type, rawData, rawData.pos)
     rawData.seek(0, 2);
 
     let childCount = rawData.readShort();
@@ -1323,6 +1323,7 @@ function decodeComponetAfter(rawData, position) {
         cnt = rawData.readShort();
         data.props = [];
         for (i = 0; i < cnt; i++) {
+            debugger;
             let target = rawData.readS();
             let propertyId = rawData.readShort();
             let value = rawData.readS();
@@ -1828,7 +1829,7 @@ function decodeSliderAfter(rawData, position) {
     data.value = rawData.readInt();
     data.max = rawData.readInt();
     if (rawData.version >= 2)
-        data._min = rawData.readInt();
+        data.min = rawData.readInt();
     return data;
 }
 
@@ -2242,6 +2243,8 @@ function decodeGObjectBefore(rawData, position) {
 
     let filter = rawData.readByte();
     if (filter == 1) {
+        debugger;
+        data.filter = [rawData.readFloat(), rawData.readFloat(), rawData.readFloat(), rawData.readFloat()];
         //todo set filter
         // ToolSet.setColorFilter(data.displayObject,
         //     [rawData.readFloat(), rawData.readFloat(), rawData.readFloat(), rawData.readFloat()]);
@@ -2249,7 +2252,7 @@ function decodeGObjectBefore(rawData, position) {
 
     let str = rawData.readS();
     if (str != null)
-        data.customData = str;
+        data.remark = str;
     return data;
 }
 
@@ -2423,7 +2426,6 @@ function decodeBinary(buffer) {
                     pi.smoothing = buffer.readBool();
                     break;
                 }
-
             case 1:// MovieClip:
                 {
                     pi.smoothing = buffer.readBool();
@@ -2432,16 +2434,12 @@ function decodeBinary(buffer) {
                     UIPackage[pi.id] = pi;
                     break;
                 }
-
             case 5: // Font:
                 {
-                    // fontRawDataMap[pi.id] = buffer.readBuffer();
-                    // pi.rawData = buffer.readBuffer();
                     pi.rawData = buffer.readBuffer();
                     UIPackage[pi.id] = pi;
                     break;
                 }
-
             case 3: // Component:
                 {
                     let extension = buffer.readByte();
@@ -2451,11 +2449,8 @@ function decodeBinary(buffer) {
                         pi.objectType = 9; // Component;
                     pi.rawData = buffer.readBuffer();
                     UIPackage[pi.id] = pi;
-
-                    // Decls.UIObjectFactory.resolveExtension(pi);
                     break;
                 }
-
             case 4: // Atlas:
                 {
                     break;
@@ -2600,14 +2595,18 @@ const parseJSON2XML = (json) => {
         pivotX, pivotY,
         isPivot,
         extensionData, children,
-        opaque,maskId,reversedMask,
-        rootContainer
+        opaque, maskId, reversedMask,
+        rootContainer, remark,
+        minWidth,maxWidth,
+        minHeight,maxHeight
     } = json;
 
     let { component } = base;
     let { $ } = component;
     let size = `${width},${height}` != "undefined,undefined" ? `${width},${height}` : null;
     $['size'] = size;
+    let restrictSize = `${minWidth},${maxWidth},${minHeight},${maxHeight}` != "undefined,undefined,undefined,undefined" ? `${minWidth},${maxWidth},${minHeight},${maxHeight}` : null;
+    $['restrictSize'] = restrictSize;
     let pivot = `${pivotX},${pivotY}` != "undefined,undefined" ? `${pivotX},${pivotY}` : null;
     $['pivot'] = pivot;
     if (isPivot) $['isPivot'] = isPivot;
@@ -2616,12 +2615,13 @@ const parseJSON2XML = (json) => {
         $['extention'] = type;
         component[type] = parseExtension(type, extensionData);
     }
-    if (overflow) {
-        $['overflow'] = OverflowType[overflow];
-    }
-    if (hitTestId) {
-        $['hitTestId'] = hitTestId; // todo
-    }
+    if (overflow) $['overflow'] = OverflowType[overflow];
+    if (hitTestId) $['hitTestId'] = hitTestId;
+    if (maskId) $['mask'] = children[maskId]['content']['name'];
+    if (reversedMask) $['reversedMask'] = reversedMask;
+    if (!opaque) $['opaque'] = opaque;
+    if (rootContainer) $['rootContainer'] = rootContainer;
+    if (remark) $['remark'] = remark;
     let controller = parseControllers(controllers);
     if (controller) {
         component['controller'] = controller;
@@ -2658,14 +2658,19 @@ function parseDisplayList(children, parent) {
         let { type, src, content, relations, path, packageItemType, file } = child;
         let objectType = ObjectType[type];
         let { width, height,
+            scaleX,scaleY,
+            skewX,skewY,
             id, name,
             x, y,
             pivotX, pivotY,
             gears, grayed,
             group, touchable,
             visible, isPivot,
-            alpha,customData } = content;
+            alpha, customData,
+            tooltips } = content;
         let size = `${width},${height}` != "undefined,undefined" ? `${width},${height}` : null;
+        let scale = `${scaleX},${scaleY}` != "undefined,undefined" ? `${Math.round(scaleX * 100) / 100},${Math.round(scaleY * 100) / 100}` : null;
+        let skew = `${skewX},${skewY}` != "undefined,undefined" ? `${skewX},${skewY}` : null;
         let xy = `${x},${y}`;
         let pivot = `${pivotX},${pivotY}` != "undefined,undefined" ? `${pivotX},${pivotY}` : null;
         isPivot ? isPivot : isPivot = null;
@@ -2685,10 +2690,9 @@ function parseDisplayList(children, parent) {
             }
         }
         let originData = {
-            "$": { id, name, src, fileName, xy, size,customData, alpha, pivot, isPivot, touchable, grayed, group, visible }
+            "$": { id, name, src, fileName, xy, size,scale,skew, customData, tooltips, alpha, pivot, isPivot, touchable, grayed, group, visible }
         };
         if (objectData) Object.assign(originData["$"], objectData);
-        if (extensionData) Object.assign(originData, extensionData);
 
         // gear
         if (gears.length > 0) {
@@ -2718,6 +2722,7 @@ function parseDisplayList(children, parent) {
             })
             Object.assign(originData, { relation });
         }
+        if (extensionData) Object.assign(originData, extensionData);
         if (objectType === "Tree") objectType = "List";
         displayList[`_{$${idx}}_${objectType.toLocaleLowerCase()}`] = originData;
         if (item) {
@@ -2790,24 +2795,59 @@ function parseObject(objectType, content) {
             let extensionName = ObjectType[type];
             switch (extensionName) {
                 case "ProgressBar":
-                    let { value, max } = content;
-                    extensionData = {};
-                    extensionData[extensionName] = {
-                        "$": { value, max }
-                    };
+                    {
+                        let { value, max } = content;
+                        extensionData = {};
+                        extensionData[extensionName] = {
+                            "$": { value, max }
+                        };
+                    }
                     break;
                 case "Button":
-                    extensionData = {};
-                    let { selected } = content;
-                    if (selected) {
+                    {
+                        let { selected } = content;
+                        if (selected) {
+                            extensionData = {};
+                            extensionData[extensionName] = {
+                                "$": { "checked": selected }
+                            };
+                        }
+                    }
+                    break;
+                case "Component":
+                    break;
+                case "Label":
+                    {
+                        extensionData = {};
+                        let { title, icon, titleColor, titleFontSize } = content;
                         extensionData[extensionName] = {
-                            "$": { "checked": selected }
+                            "$": { title, icon, titleColor, titleFontSize }
                         };
+                    }
+                    break;
+                case "ComboBox":
+                    {
+                        extensionData = {};
+                        let { items, values,
+                            icons, popupDirection,
+                            selected, text,
+                            titleColor, visibleItemCount,
+                            selectionController } = content;
+                        extensionData[extensionName] = {
+                            "$": { popupDirection, selected, text, selectionController, titleColor, visibleItemCount }
+                        };
+                    }
+                    break;
+                case "Slider":
+                    extensionData = {};
+                    let { value, max, min } = content;
+                    extensionData[extensionName] = {
+                        "$": { value, max, min }
                     }
                     break;
                 default:
                     console.log(extensionName);
-                    // debugger;
+                    debugger;
                     break;
             }
             break;
@@ -3101,8 +3141,7 @@ function parseText(content) {
         strikethrough, shadowColor,
         shadowOffsetX, shadowOffsetY,
         outlineColor, outline } = textFormat;
-    objectData.fontSize = size;
-    objectData.color = color == "#000000" ? null : color;
+    
     objectData.align = align == "left" ? null : align;
     objectData.vAlign = verticalAlign == "top" ? null : verticalAlign;
     if (bold) objectData.bold = bold;
@@ -3111,11 +3150,18 @@ function parseText(content) {
     if (letterSpacing) objectData.letterSpacing = letterSpacing;
     if (leading != 3) objectData.leading = leading;
     if (font) objectData.font = font;
+    objectData.fontSize = size;
+    objectData.color = color == "#000000" ? null : color;
     if (singleLine) objectData.singleLine = singleLine;
     if (ubbEnabled) objectData.ubbEnabled = ubbEnabled;
     if (template) objectData.template = template;
-    objectData.autoSize = AutoSizeType[autoSize];
+    if(autoSize != 1)objectData.autoSize = AutoSizeType[autoSize]; // default:1
     objectData.strokeColor = outlineColor;
+    objectData.outline = outline;
+    if(strikethrough)objectData.strikethrough = strikethrough;
+    objectData.shadowColor = shadowColor;
+    objectData.shadowOffsetX = shadowOffsetX;
+    objectData.shadowOffsetY = shadowOffsetY;
     objectData.text = text || "";
     return objectData;
 }
