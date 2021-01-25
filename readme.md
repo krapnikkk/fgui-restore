@@ -23,6 +23,12 @@ fgui-cli view [fileName]
 fgui-cli restore [fileName]
 ```
 
+## 支持版本
+
+已兼容版本 [向下兼容]
+buffer.version： 3
+FairyGUI Editor: 2020.3.3
+
 ### 还原程度
  - 将合并的纹理图片还原成碎图【统一png格式】
  - 将碎图和package.xml关联绑定

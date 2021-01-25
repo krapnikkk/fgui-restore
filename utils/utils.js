@@ -46,7 +46,7 @@ const getObjectById = (obj, id, name) => {
 }
 
 const json2xml = (json) => {
-    let builder = new Builder({ xmldec: { 'version': '1.0', 'encoding': 'UTF-8', noValidation: true } });
+    let builder = new Builder({ xmldec: { 'version': '1.0', 'encoding': 'utf-8', noValidation: true } });
     return builder.buildObject(json);
 }
 

@@ -12,26 +12,6 @@ process.on("uncaughtException", function (err) {
 });
 
 const XMLHeader = '<?xml version="1.0" encoding="utf-8"?>\n';
-// let a = `
-// <?xml version="1.0" encoding="utf-8"?>
-// <component size="1136,640" bgColor="#3f3f3f">
-//   <displayList>
-//     <graph id="n3_sw6l" name="n3" xy="43,16" size="424,594" type="rect" lineSize="2"/>
-//     <list id="n4_sw6l" name="tree" xy="45,18" size="419,589" overflow="scroll" scrollBarFlags="128" defaultItem="ui://5nx1f8vzpmk31" treeView="true" indent="15" clickToExpand="1">
-//       <item title="Folder 1" icon="ui://5nx1f8vzpmk32" name="12" selectedIcon="ui://5nx1f8vzua5o6" selectedTitle="12" level="0"/>
-//       <item title="Leaf 1" icon="ui://5nx1f8vzua5o8" level="1"/>
-//       <item title="Leaf 2" icon="ui://5nx1f8vzua5o8" level="1"/>
-//       <item title="Leaf 3" icon="ui://5nx1f8vzua5o8" level="1"/>
-//       <item title="Leaf 4" icon="ui://5nx1f8vzua5o8" name="2" level="1"/>
-//       <item title="Folder 2" name="1" level="0"/>
-//       <item level="0"/>
-//       <item title="Leaf 1" icon="ui://5nx1f8vzua5o7" level="1"/>
-//     </list>
-//     <graph id="n5_sw6l" name="n5" xy="624,16" size="424,594" type="rect" lineSize="2"/>
-//     <list id="n6_sw6l" name="tree2" xy="626,18" size="419,589" overflow="scroll" scrollBarFlags="128" defaultItem="ui://5nx1f8vzpmk31" treeView="true" indent="15" clickToExpand="1"/>
-//   </displayList>
-// </component>`;
-// xml2json(a).then((res)=>{console.log(res)});
 let importFileName = "Basics",
     inputPath = "./test/",
     outputPath = './output/',
@@ -60,6 +40,11 @@ let importFileName = "Basics",
         "ScrollBar",
         "Tree",
         "Loader3D"
+    ],
+    downEffectType = [
+        "none",
+        "dark",
+        "scale"
     ],
     OverflowType = [
         "visible",
@@ -653,9 +638,9 @@ const createByPackageBin = async (pkgData) => {
             component['content'] = parseJSON2XML(content);
             componentMap[id] = component;
         })
-        createFileByData(componentMap, ".xml");
+        createFileByData(componentMap, "");
     }
-    debugger;
+    // debugger;
     deleteTemp(tempPath);
 }
 
@@ -946,7 +931,7 @@ function decodeComponentData(contentItem, files) {
 
     rawData.seek(0, 4);
 
-    rawData.skip(2); //customData
+    pi.customData = rawData.skip(2); //customData
     pi.opaque = rawData.readBool();
     let maskId = rawData.readShort();
     if (maskId != -1) {
@@ -1040,10 +1025,10 @@ function decodeGraphBefore(rawData, position) {
 }
 
 function decodeTextFieldBefore(rawData, position) {
-    let data = { "textField": { "textFormat": {} } };
+    let data = { "textFormat": {} };
     rawData.seek(position, 5);
 
-    let tf = data.textField.textFormat;
+    let tf = data.textFormat;
 
     tf.font = rawData.readS();
     tf.size = rawData.readShort();
@@ -1052,7 +1037,7 @@ function decodeTextFieldBefore(rawData, position) {
     data.align = c == 0 ? "left" : (c == 1 ? "center" : "right");
     c = rawData.readByte();
     data.verticalAlign = c == 0 ? "top" : (c == 1 ? "middle" : "bottom");
-    tf.lineSpacing = rawData.readShort();
+    tf.leading = rawData.readShort();
     tf.letterSpacing = rawData.readShort();
     data.ubbEnabled = rawData.readBool();
     data.autoSize = rawData.readByte();
@@ -1119,7 +1104,7 @@ function decodeLoaderBefore(rawData, position) {
     let iv = rawData.readByte();
     data.align = iv == 0 ? "left" : (iv == 1 ? "center" : "right");
     iv = rawData.readByte();
-    data.valign = iv == 0 ? "top" : (iv == 1 ? "middle" : "bottom");
+    data.vAlign = iv == 0 ? "top" : (iv == 1 ? "middle" : "bottom");
     data.fill = rawData.readByte();
     data.shrinkOnly = rawData.readBool();
     data.autoSize = rawData.readBool();
@@ -1164,7 +1149,7 @@ function decodeListBefore(rawData, position, treeView = false) {
     i1 = rawData.readByte();
     data.align = i1 == 0 ? "left" : (i1 == 1 ? "center" : "right");
     i1 = rawData.readByte();
-    data.valign = i1 == 0 ? "top" : (i1 == 1 ? "middle" : "bottom");
+    data.vAlign = i1 == 0 ? "top" : (i1 == 1 ? "middle" : "bottom");
     data.lineGap = rawData.readShort();
     data.columnGap = rawData.readShort();
     data.lineCount = rawData.readShort();
@@ -2264,7 +2249,7 @@ function decodeGObjectBefore(rawData, position) {
 
     let str = rawData.readS();
     if (str != null)
-        data.data = str;
+        data.customData = str;
     return data;
 }
 
@@ -2608,10 +2593,24 @@ const parseJSON2XML = (json) => {
             }
         }
     }
-    let { width, height, objectType, overflow, hitTestId, controllers, extensionData, children } = json;
+    let {
+        width, height,
+        objectType, overflow,
+        hitTestId, controllers,
+        pivotX, pivotY,
+        isPivot,
+        extensionData, children,
+        opaque,maskId,reversedMask,
+        rootContainer
+    } = json;
+
     let { component } = base;
     let { $ } = component;
-    $['size'] = `${width},${height}`;
+    let size = `${width},${height}` != "undefined,undefined" ? `${width},${height}` : null;
+    $['size'] = size;
+    let pivot = `${pivotX},${pivotY}` != "undefined,undefined" ? `${pivotX},${pivotY}` : null;
+    $['pivot'] = pivot;
+    if (isPivot) $['isPivot'] = isPivot;
     if (objectType && objectType !== 9) {
         let type = ObjectType[objectType];
         $['extention'] = type;
@@ -2630,10 +2629,8 @@ const parseJSON2XML = (json) => {
     if (children) {
         component['displayList'] = parseDisplayList(children, json);
     }
-    console.log(base);
     let xml = json2xml(base);
     xml = xml.replace(/_{\$(\w+)}_/g, "");
-    console.log(xml);
     return xml;
 }
 
@@ -2663,11 +2660,15 @@ function parseDisplayList(children, parent) {
         let { width, height,
             id, name,
             x, y,
+            pivotX, pivotY,
             gears, grayed,
             group, touchable,
-            visible } = content;
+            visible, isPivot,
+            alpha,customData } = content;
         let size = `${width},${height}` != "undefined,undefined" ? `${width},${height}` : null;
         let xy = `${x},${y}`;
+        let pivot = `${pivotX},${pivotY}` != "undefined,undefined" ? `${pivotX},${pivotY}` : null;
+        isPivot ? isPivot : isPivot = null;
         let fileName;
         let GObjectData = parseObject(objectType, content);
         let { objectData, extensionData, item } = GObjectData;
@@ -2678,13 +2679,13 @@ function parseDisplayList(children, parent) {
             }
 
             if (fileExt == "Sound") {
-                fileName = path.slice(0, 1) + file;
+                fileName = path.slice(1, path.length) + file;
             } else {
-                fileName = path.slice(0, 1) + file + fileExt;
+                fileName = path.slice(1, path.length) + file + fileExt;
             }
         }
         let originData = {
-            "$": { id, name, src, fileName, xy, size, touchable, grayed, group, visible }
+            "$": { id, name, src, fileName, xy, size,customData, alpha, pivot, isPivot, touchable, grayed, group, visible }
         };
         if (objectData) Object.assign(originData["$"], objectData);
         if (extensionData) Object.assign(originData, extensionData);
@@ -2722,13 +2723,13 @@ function parseDisplayList(children, parent) {
         if (item) {
             displayList[`_{$${idx}}_${objectType.toLocaleLowerCase()}`]['item'] = item;
         }
-        packageItemMap[id] = { originData, parent };
+        // packageItemMap[id] = { originData, parent };
     })
     return displayList;
 }
 
 function parseObject(objectType, content) {
-    let { align, valign, items } = content;
+    let { align, vAlign, items } = content;
     let objectData = {}, extensionData, item;
     switch (objectType) {
         case "Image":
@@ -2770,19 +2771,19 @@ function parseObject(objectType, content) {
             }
             break;
         case "Text":
-            {
-                let { textField, singleLine, autoSize, text } = content;
-                let { textFormat } = textField;
-                if (!textFormat) textFormat = {};
-                let { size, color } = textFormat;
-                objectData.fontSize = size;
-                objectData.color = color == "#000000" ? null : color;
-                objectData.align = align == "left" ? null : align;
-                objectData.valign = valign == "top" ? null : valign;
-                objectData.autoSize = AutoSizeType[autoSize];
-                if (singleLine) objectData.singleLine = singleLine;
-                objectData.text = text || "";
-            }
+            objectData = parseText(content);
+            break;
+        case "RichText":
+            objectData = parseText(content);
+            break;
+        case "InputText":
+            let { promptText, keyboardType, password, maxLength, restrict } = content;
+            objectData = parseText(content);
+            if (restrict) objectData.restrict = restrict;
+            if (promptText) objectData.promptText = promptText;
+            if (keyboardType) objectData.keyboardType = keyboardType;
+            if (password) objectData.password = password;
+            if (maxLength) objectData.maxLength = maxLength;
             break;
         case "Component":
             let { type } = content;
@@ -2806,7 +2807,7 @@ function parseObject(objectType, content) {
                     break;
                 default:
                     console.log(extensionName);
-                    debugger;
+                    // debugger;
                     break;
             }
             break;
@@ -2822,7 +2823,7 @@ function parseObject(objectType, content) {
                 objectData.fillClockwise = fillClockwise;
                 objectData.fillAmount = fillAmount;
                 objectData.align = align == "left" ? null : align;
-                objectData.valign = valign == "top" ? null : valign;
+                objectData.vAlign = vAlign == "top" ? null : vAlign;
                 if (fill) objectData.fill = LoaderFillType[fill];
                 if (shrinkOnly) objectData.shrinkOnly = shrinkOnly;
                 if (frame) objectData.frame = frame;
@@ -2897,32 +2898,32 @@ function parseGear(gears, controllers) {
                 case "gearSize":
                     if (!isEmptyObject(item)) {
                         let { width, height, scaleX, scaleY } = item;
-                        value = `${width},${height},${changeTwoDecimal(scaleX)},${changeTwoDecimal(scaleY)}`;
+                        value = `${width},${height},${scaleX},${scaleY}`;
                     }
                     if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
                         let { width, height, scaleX, scaleY } = defaultValues;
-                        defaultStr = `${width},${height},${changeTwoDecimal(scaleX)},${changeTwoDecimal(scaleY)}`;
+                        defaultStr = `${width},${height},${scaleX},${scaleY}`;
                     }
                     break;
                 case "gearLook":
                     if (!isEmptyObject(item)) {
                         let { alpha, rotation, grayed, touchable } = item;
-                        value = `${changeTwoDecimal(alpha)},${rotation},${+grayed},${+touchable}`;
+                        value = `${alpha},${rotation},${+grayed},${+touchable}`;
                     }
                     if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
                         let { alpha, rotation, grayed, touchable } = defaultValues;
-                        defaultStr = `${changeTwoDecimal(alpha)},${rotation},${+grayed},${+touchable}`;
+                        defaultStr = `${alpha},${rotation},${+grayed},${+touchable}`;
                     }
                     break;
                 case "gearColor":
                     if (!isEmptyObject(item)) {
                         let { color, strokeColor } = item;
-                        if (strokeColor == "rgb(0,0,0)") strokeColor = null;
+                        // if (strokeColor == "rgb(0,0,0)") strokeColor = null; version 3.0
                         value = `${rgbaToHex(color, false)},${rgbaToHex(strokeColor, false)}`;
                     }
                     if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
                         let { color, strokeColor } = defaultValues;
-                        if (strokeColor == "rgb(0,0,0)") strokeColor = null;
+                        // if (strokeColor == "rgb(0,0,0)") strokeColor = null; version 3.0
                         defaultStr = `${rgbaToHex(color, false)},${rgbaToHex(strokeColor, false)}`;
                     }
                     break;
@@ -2999,7 +3000,8 @@ function parseGear(gears, controllers) {
                 ease = null;
             }
             duration = duration.toFixed(1);
-            if (duration == "0.3") duration = null;
+            duration = duration == "0.3" ? null : duration.replace("0.", ".");
+
             if (delay === 0) {
                 delay = null;
             } else {
@@ -3017,9 +3019,9 @@ function parseExtension(type, extensionData) {
         case "Button":
             let { downEffect, downEffectValue, mode, soundVolumeScale, sound } = extensionData;
             if (downEffect) {
-                data['$']['downEffect'] = downEffect;
+                data['$']['downEffect'] = downEffectType[downEffect];
                 if (downEffectValue) {
-                    data['$']['downEffectValue'] = downEffectValue.toFixed(2);
+                    data['$']['downEffectValue'] = (+downEffectValue.toFixed(2)).toString().replace("0.", ".");
                 }
 
             }
@@ -3044,7 +3046,7 @@ function parseExtension(type, extensionData) {
 function parseList(content) {
     let objectData = {};
     let { defaultItem,
-        align, valign,
+        align, vAlign,
         overflow, scroll,
         childrenRenderOrder, selectionMode,
         autoResizeItem, scrollItemToViewOnClick,
@@ -3077,7 +3079,7 @@ function parseList(content) {
     if (headerRes || footerRes) objectData.ptrRes = `${headerRes ? headerRes : ""},${footerRes ? footerRes : ""}`;
     objectData.defaultItem = defaultItem;
     objectData.align = align == "left" ? null : align;
-    objectData.valign = valign == "top" ? null : valign;
+    objectData.vAlign = vAlign == "top" ? null : vAlign;
     if (childrenRenderOrder) objectData.renderOrder = ChildrenRenderOrder[childrenRenderOrder];
     if (!autoResizeItem) objectData.autoItemSize = autoResizeItem;
     if (!scrollItemToViewOnClick) objectData.scrollItemToViewOnClick = scrollItemToViewOnClick;
@@ -3086,6 +3088,37 @@ function parseList(content) {
     return objectData;
 }
 
+function parseText(content) {
+    let objectData = {};
+    let { textFormat, singleLine,
+        ubbEnabled, autoSize, text,
+        align, verticalAlign, template } = content;
+    if (!textFormat) textFormat = {};
+    let { size, color,
+        bold, underline,
+        italic, letterSpacing,
+        leading, font,
+        strikethrough, shadowColor,
+        shadowOffsetX, shadowOffsetY,
+        outlineColor, outline } = textFormat;
+    objectData.fontSize = size;
+    objectData.color = color == "#000000" ? null : color;
+    objectData.align = align == "left" ? null : align;
+    objectData.vAlign = verticalAlign == "top" ? null : verticalAlign;
+    if (bold) objectData.bold = bold;
+    if (underline) objectData.underline = underline;
+    if (italic) objectData.italic = italic;
+    if (letterSpacing) objectData.letterSpacing = letterSpacing;
+    if (leading != 3) objectData.leading = leading;
+    if (font) objectData.font = font;
+    if (singleLine) objectData.singleLine = singleLine;
+    if (ubbEnabled) objectData.ubbEnabled = ubbEnabled;
+    if (template) objectData.template = template;
+    objectData.autoSize = AutoSizeType[autoSize];
+    objectData.strokeColor = outlineColor;
+    objectData.text = text || "";
+    return objectData;
+}
 
 /** utils  */
 /**
