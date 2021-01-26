@@ -76,6 +76,15 @@ const isEmptyObject = (object) => {
     return Object.keys(object).length === 0
 }
 
+const deleteObjectProps = (object) =>{
+    for(let key in object){
+        let value = object[key];
+        if(typeof value === "undefined"){
+            delete object[key];
+        }
+    }
+}
+
 const changeTwoDecimal = (x) => {
     let f_x = parseFloat(x);
     if (isNaN(f_x)) {
@@ -107,3 +116,4 @@ module.exports.rgbaToHex = rgbaToHex;
 module.exports.isEmptyObject = isEmptyObject;
 module.exports.changeTwoDecimal = changeTwoDecimal;
 module.exports.getObjectById = getObjectById;
+module.exports.deleteObjectProps = deleteObjectProps;

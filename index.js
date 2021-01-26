@@ -3,7 +3,7 @@ const zlib = require("zlib");
 const Jimp = require('jimp');
 const ByteArray = require('./ByteArray');
 const { resolve } = require('path');
-const { exists, xml2json, json2xml, getItemById, getObjectById, rgbaToHex, isEmptyObject, changeTwoDecimal } = require('./utils/utils');
+const { exists, xml2json, json2xml, getItemById, getObjectById, rgbaToHex, isEmptyObject, deleteObjectProps } = require('./utils/utils');
 const { createMovieClip } = require('./build/create');
 
 process.on("uncaughtException", function (err) {
@@ -77,7 +77,7 @@ let importFileName = "Basics",
     GraphType = [
         "none",
         "rect",
-        "ellipse",
+        "eclipse", // ellipse a mistake
         "polygon",
         "regular_polygon"
     ],
@@ -204,6 +204,12 @@ let importFileName = "Basics",
         ".png",
         ".fnt",
         ".swf"
+    ],
+    ProgressTitleType = [
+        "percent",
+        "valueAndmax", // valueAndmax a mistake
+        "value",
+        "max"
     ],
     packageItemMap = {},
     UIConfig = {},// default
@@ -531,6 +537,7 @@ const handlePackageDataBin = (pkgData) => {
                 fonts.push(item);
                 break;
             default:
+                debugger;
                 break;
         }
     })
@@ -618,8 +625,6 @@ const createByPackageBin = async (pkgData) => {
         movieclipInfo.forEach((item) => {
             let movieclip = item['$'];
             let { id } = movieclip;
-            // let file = `${movieclip['id']}.xml`;
-            // movieclip['content'] = pkgData[file];
             movieclip['content'] = decodeMovieclipData(id, sprites, files);
             movieclipMap[id] = movieclip;
         })
@@ -634,7 +639,6 @@ const createByPackageBin = async (pkgData) => {
             let component = item['$'];
             let { id } = component;
             let content = decodeComponentData(UIPackage[id], files);
-            console.log(id);
             component['content'] = parseJSON2XML(content);
             componentMap[id] = component;
         })
@@ -854,7 +858,7 @@ function decodeComponentData(contentItem, files) {
         pi.controllers.push(controller);
         rawData.pos = nextPos;
     }
-    // let self = setup_beforeAdd(type, rawData, rawData.pos)
+
     rawData.seek(0, 2);
 
     let childCount = rawData.readShort();
@@ -1127,7 +1131,7 @@ function decodeLoaderBefore(rawData, position) {
 function decodeGroupBefore(rawData, position) {
     let data = {};
     rawData.seek(position, 5);
-
+    data.advance = true;
     data.layout = rawData.readByte();
     data.lineGap = rawData.readInt();
     data.columnGap = rawData.readInt();
@@ -1140,7 +1144,7 @@ function decodeGroupBefore(rawData, position) {
 }
 
 function decodeListBefore(rawData, position, treeView = false) {
-    let data = { "margin": {} };
+    let data = {};
     rawData.seek(position, 5);
     let i1;
 
@@ -1159,6 +1163,7 @@ function decodeListBefore(rawData, position, treeView = false) {
     data.apexIndex = rawData.readShort();
 
     if (rawData.readBool()) {
+        data.margin = {};
         data.margin.top = rawData.readInt();
         data.margin.bottom = rawData.readInt();
         data.margin.left = rawData.readInt();
@@ -1173,8 +1178,12 @@ function decodeListBefore(rawData, position, treeView = false) {
         rawData.pos = savedPos;
     }
 
-    if (rawData.readBool()) //clipSoftness
-        rawData.skip(8);
+    if (rawData.readBool()) {//clipSoftness
+        // rawData.skip(8);
+        data.clipSoftness = {};
+        data.clipSoftness.x = rawData.readInt();
+        data.clipSoftness.y = rawData.readInt();
+    }
 
     if (rawData.version >= 2) {
         data.scrollItemToViewOnClick = rawData.readBool();
@@ -2155,7 +2164,7 @@ function decodeGObjectAfter(rawData, position) {
 
     let groupId = rawData.readShort();
     if (groupId >= 0)
-        data.group = groupId;
+        data.groupId = groupId;
 
     rawData.seek(position, 2);
 
@@ -2252,7 +2261,7 @@ function decodeGObjectBefore(rawData, position) {
 
     let str = rawData.readS();
     if (str != null)
-        data.remark = str;
+        data.data = str;
     return data;
 }
 
@@ -2297,16 +2306,6 @@ function constructButton(buffer) {
     data.soundVolumeScale = buffer.readFloat();
     data.downEffect = buffer.readByte();
     data.downEffectValue = buffer.readFloat();
-    // data.buttonController = this.getController("button");
-    // data.titleObject = this.getChild("title");
-    // data.iconObject = this.getChild("icon");
-    // if (data.titleObject)
-    //     data.title = data.titleObject.text;
-    // if (data.iconObject)
-    //     data.icon = data.iconObject.icon;
-
-    // if (data.mode == ButtonMode.Common)
-    //     data.setState("up");
     return data;
 }
 
@@ -2374,12 +2373,12 @@ function decodeBinary(buffer) {
 
     if (ver2) {
         cnt = buffer.readShort();
-        if (cnt > 0) {
-            let _branches = buffer.readSArray(cnt);
-            if (_branch) {
-                let _branchIndex = _branches.indexOf(_branch);
-                console.log(_branchIndex);
-            }
+        if (cnt > 0) { // todo
+            debugger;
+            // let _branches = buffer.readSArray(cnt);
+            // if (_branch) {
+            //     let _branchIndex = _branches.indexOf(_branch);
+            // }
         }
 
         branchIncluded = cnt > 0;
@@ -2544,10 +2543,6 @@ function decodeBinary(buffer) {
             buffer.pos = nextPos;
         }
     }
-    // console.log(_items); // package.xml
-    // console.log(_itemMap);
-    // console.log(_sprites); // sprites.bytes
-    // console.log(_pixelHitTestDatas);
     return { "package.xml": _items, "sprites.bytes": _sprites, "files": _itemMap };
 }
 
@@ -2578,7 +2573,6 @@ const parseSprites = (resDic) => {
 }
 
 const parseJSON2XML = (json) => {
-    console.log(json);
     let base = {
         "component": {
             "$": {},
@@ -2591,37 +2585,70 @@ const parseJSON2XML = (json) => {
     let {
         width, height,
         objectType, overflow,
+        scroll, margin,
         hitTestId, controllers,
         pivotX, pivotY,
-        isPivot,
+        isPivot, relations,
         extensionData, children,
         opaque, maskId, reversedMask,
         rootContainer, remark,
-        minWidth,maxWidth,
-        minHeight,maxHeight
+        minWidth, maxWidth,
+        minHeight, maxHeight
     } = json;
+    if (!scroll) scroll = {};
+    let { flags, scrollBarMargin,
+        footerRes, headerRes,
+        vtScrollBarRes, hzScrollBarRes,
+        scrollType, scrollBarDisplay } = scroll;
 
     let { component } = base;
     let { $ } = component;
     let size = `${width},${height}` != "undefined,undefined" ? `${width},${height}` : null;
-    $['size'] = size;
+    $.size = size;
     let restrictSize = `${minWidth},${maxWidth},${minHeight},${maxHeight}` != "undefined,undefined,undefined,undefined" ? `${minWidth},${maxWidth},${minHeight},${maxHeight}` : null;
-    $['restrictSize'] = restrictSize;
+    $.restrictSize = restrictSize;
     let pivot = `${pivotX},${pivotY}` != "undefined,undefined" ? `${pivotX},${pivotY}` : null;
-    $['pivot'] = pivot;
-    if (isPivot) $['isPivot'] = isPivot;
+    $.pivot = pivot;
+    if (isPivot) $.isPivot = isPivot;
+
+    // scroll
+    if (overflow) $.overflow = OverflowType[overflow];
+    if (scrollType != 1) $.scroll = ScrollType[scrollType]; // default 1
+    if (flags) $.scrollBarFlags = flags;
+    if (scrollBarDisplay) $.scrollBar = ScrollBarDisplayType[scrollBarDisplay];
+    if (scrollBarMargin && !isEmptyObject(scrollBarMargin)) {
+        let { left, right, top, bottom } = scrollBarMargin;
+        $.scrollBarMargin = `${top},${bottom},${left},${right}`;
+    }
+    if (hzScrollBarRes || vtScrollBarRes) $.scrollBarRes = `${hzScrollBarRes ? hzScrollBarRes : ""},${vtScrollBarRes ? vtScrollBarRes : ""}`;
+    if (headerRes || footerRes) $.ptrRes = `${headerRes ? headerRes : ""},${footerRes ? footerRes : ""}`;
+
+    // relations
+    if (relations && relations.items) {
+        let relation = parseRelation(relations, json);
+        Object.assign(component, { relation });
+    }
+
+    if (margin) {
+        let { top, bottom, left, right } = margin;
+        let marginStr = `${top},${bottom},${left},${right}` != "0,0,0,0" ? `${top},${bottom},${left},${right}` : null;
+        $.margin = marginStr;
+    }
+    if (hitTestId) $.hitTestId = hitTestId;
+    if (maskId) $.mask = children[maskId]['content']['name'];
+    if (reversedMask) $.reversedMask = reversedMask;
+    if (!opaque) $.opaque = opaque;
+    if (rootContainer) $.rootContainer = rootContainer;
+    if (remark) $.remark = remark;
+
     if (objectType && objectType !== 9) {
         let type = ObjectType[objectType];
         $['extention'] = type;
-        component[type] = parseExtension(type, extensionData);
+        let extensionProps = parseExtension(type, extensionData);
+        if (!isEmptyObject(extensionProps)) {
+            component[type] = extensionProps;
+        }
     }
-    if (overflow) $['overflow'] = OverflowType[overflow];
-    if (hitTestId) $['hitTestId'] = hitTestId;
-    if (maskId) $['mask'] = children[maskId]['content']['name'];
-    if (reversedMask) $['reversedMask'] = reversedMask;
-    if (!opaque) $['opaque'] = opaque;
-    if (rootContainer) $['rootContainer'] = rootContainer;
-    if (remark) $['remark'] = remark;
     let controller = parseControllers(controllers);
     if (controller) {
         component['controller'] = controller;
@@ -2658,13 +2685,13 @@ function parseDisplayList(children, parent) {
         let { type, src, content, relations, path, packageItemType, file } = child;
         let objectType = ObjectType[type];
         let { width, height,
-            scaleX,scaleY,
-            skewX,skewY,
+            scaleX, scaleY,
+            skewX, skewY,
             id, name,
             x, y,
             pivotX, pivotY,
             gears, grayed,
-            group, touchable,
+            groupId, touchable,
             visible, isPivot,
             alpha, customData,
             tooltips } = content;
@@ -2675,7 +2702,7 @@ function parseDisplayList(children, parent) {
         let pivot = `${pivotX},${pivotY}` != "undefined,undefined" ? `${pivotX},${pivotY}` : null;
         isPivot ? isPivot : isPivot = null;
         let fileName;
-        let GObjectData = parseObject(objectType, content);
+        let GObjectData = parseObject(objectType, content, controllers);
         let { objectData, extensionData, item } = GObjectData;
         if (src) {
             let fileExt = PackageItemType[packageItemType];
@@ -2689,8 +2716,12 @@ function parseDisplayList(children, parent) {
                 fileName = path.slice(1, path.length) + file + fileExt;
             }
         }
+        let group;
+        if (parseFloat(groupId).toString() != "NaN") {
+            group = parent["children"][groupId]['content']['name'];
+        }
         let originData = {
-            "$": { id, name, src, fileName, xy, size,scale,skew, customData, tooltips, alpha, pivot, isPivot, touchable, grayed, group, visible }
+            "$": { id, name, src, fileName, xy, size, scale, skew, customData, tooltips, alpha, pivot, isPivot, touchable, grayed, group, visible }
         };
         if (objectData) Object.assign(originData["$"], objectData);
 
@@ -2702,24 +2733,7 @@ function parseDisplayList(children, parent) {
 
         // relation
         if (relations && relations.items) {
-            let relation = [];
-            relations.items.forEach((item) => {
-                let $ = { "target": "", "sidePair": "" };
-                let targetIndex = item.targetIndex;
-                if (targetIndex > -1) {
-                    $.target = parent['children'][targetIndex]['content']['id'];
-                }
-                let sidePairs = item.relations.map((sidePair) => {
-                    let { rt, usePercent } = sidePair;
-                    rt = RelationType[rt];
-                    usePercent = usePercent ? "%" : "";
-                    return `${rt}${usePercent}`;
-                });
-                if (sidePairs) {
-                    $.sidePair = sidePairs.join(",");
-                }
-                relation.push({ $ });
-            })
+            let relation = parseRelation(relations, parent);
             Object.assign(originData, { relation });
         }
         if (extensionData) Object.assign(originData, extensionData);
@@ -2728,14 +2742,13 @@ function parseDisplayList(children, parent) {
         if (item) {
             displayList[`_{$${idx}}_${objectType.toLocaleLowerCase()}`]['item'] = item;
         }
-        // packageItemMap[id] = { originData, parent };
     })
     return displayList;
 }
 
-function parseObject(objectType, content) {
+function parseObject(objectType, content, controllers) {
     let { align, vAlign, items } = content;
-    let objectData = {}, extensionData, item;
+    let objectData = {}, extensionData = {}, item;
     switch (objectType) {
         case "Image":
             {
@@ -2744,8 +2757,10 @@ function parseObject(objectType, content) {
                 let { fillMethod, fillOrigin, fillClockwise, fillAmount } = image;
                 if (fillMethod) objectData.fillMethod = fillMethodType[fillMethod];
                 if (fillOrigin) objectData.fillOrigin = FillOrigin[fillOrigin];
-                objectData.fillClockwise = fillClockwise;
-                objectData.fillAmount = fillAmount;
+                if (!fillClockwise) objectData.fillClockwise = fillClockwise;
+                if (parseFloat(fillAmount).toString() != "NaN" && fillAmount != 1) {
+                    objectData.fillAmount = +(+fillAmount.toFixed(2)) * 100;
+                }
                 if (flip) objectData.flip = FlipType[flip];
             }
             break;
@@ -2797,7 +2812,6 @@ function parseObject(objectType, content) {
                 case "ProgressBar":
                     {
                         let { value, max } = content;
-                        extensionData = {};
                         extensionData[extensionName] = {
                             "$": { value, max }
                         };
@@ -2805,20 +2819,34 @@ function parseObject(objectType, content) {
                     break;
                 case "Button":
                     {
-                        let { selected } = content;
+                        let { title, selectedTitle,
+                            icon,
+                            selectedIcon, titleColor,
+                            titleFontSize, relatedController,
+                            relatedPageId, sound,
+                            volume, selected } = content;
+                        extensionData[extensionName] = { "$": {} };
                         if (selected) {
-                            extensionData = {};
-                            extensionData[extensionName] = {
-                                "$": { "checked": selected }
-                            };
+                            extensionData[extensionName]["$"] = { "checked": selected };
                         }
+                        let controller;
+                        if (relatedController == 0 || relatedController) {
+                            controller = controllers[relatedController]['name'];
+                        }
+                        Object.assign(extensionData[extensionName]["$"], {
+                            title, selectedTitle,
+                            icon, selectedIcon,
+                            titleColor, titleFontSize, controller,
+                            "page": relatedPageId, sound, volume
+                        });
                     }
                     break;
                 case "Component":
+                    extensionData[extensionName] = { "$": {} };
                     break;
                 case "Label":
                     {
-                        extensionData = {};
+
                         let { title, icon, titleColor, titleFontSize } = content;
                         extensionData[extensionName] = {
                             "$": { title, icon, titleColor, titleFontSize }
@@ -2827,19 +2855,21 @@ function parseObject(objectType, content) {
                     break;
                 case "ComboBox":
                     {
-                        extensionData = {};
                         let { items, values,
                             icons, popupDirection,
                             selected, text,
                             titleColor, visibleItemCount,
                             selectionController } = content;
+                        // todo
+                        if(items){
+                            debugger;
+                        }
                         extensionData[extensionName] = {
                             "$": { popupDirection, selected, text, selectionController, titleColor, visibleItemCount }
                         };
                     }
                     break;
                 case "Slider":
-                    extensionData = {};
                     let { value, max, min } = content;
                     extensionData[extensionName] = {
                         "$": { value, max, min }
@@ -2849,6 +2879,10 @@ function parseObject(objectType, content) {
                     console.log(extensionName);
                     debugger;
                     break;
+            }
+            deleteObjectProps(extensionData[extensionName]["$"])
+            if (isEmptyObject(extensionData[extensionName]["$"])) {
+                extensionData = {};
             }
             break;
         case "Loader":
@@ -2893,7 +2927,8 @@ function parseObject(objectType, content) {
             });
             break;
         case "Group":
-            let { layout, lineGap, columnGap, excludeInvisibles, autoSizeDisabled, mainGridIndex } = content;
+            let { advance, layout, lineGap, columnGap, excludeInvisibles, autoSizeDisabled, mainGridIndex } = content;
+            objectData.advance = advance;
             if (layout) objectData.layout = layout;
             if (lineGap) objectData.lineGap = lineGap;
             if (columnGap) objectData.columnGap = columnGap;
@@ -3053,33 +3088,78 @@ function parseGear(gears, controllers) {
     return gearObject;
 }
 
+function parseRelation(relations, parent) {
+    let relation = [];
+    relations.items.forEach((item) => {
+        let $ = { "target": "", "sidePair": "" };
+        let targetIndex = item.targetIndex;
+        if (targetIndex > -1) {
+            $.target = parent['children'][targetIndex]['content']['id'];
+        }
+        let sidePairs = item.relations.map((sidePair) => {
+            let { rt, usePercent } = sidePair;
+            rt = RelationType[rt];
+            usePercent = usePercent ? "%" : "";
+            return `${rt}${usePercent}`;
+        });
+        if (sidePairs) {
+            $.sidePair = sidePairs.join(",");
+        }
+        relation.push({ $ });
+    })
+    return relation;
+}
+
 function parseExtension(type, extensionData) {
     let data = { $: {} };
     switch (type) {
         case "Button":
             let { downEffect, downEffectValue, mode, soundVolumeScale, sound } = extensionData;
+            if (mode) data['$']['mode'] = ButtonMode[mode]
+            if (sound) data['$']['sound'] = sound;
+            if (soundVolumeScale > 1) data['$']['volume'] = volume
             if (downEffect) {
                 data['$']['downEffect'] = downEffectType[downEffect];
-                if (downEffectValue) {
-                    data['$']['downEffectValue'] = (+downEffectValue.toFixed(2)).toString().replace("0.", ".");
-                }
-
+                if (downEffectValue) data['$']['downEffectValue'] = (+downEffectValue.toFixed(2)).toString().replace("0.", ".");
             }
-            if (mode) {
-                data['$']['mode'] = ButtonMode[mode]
+            break;
+        case "Slider":
+            {
+                let {
+                    reverse, changeOnClick,
+                    titleType, wholeNumbers } = extensionData;
+                if (titleType) data['$']['titleType'] = titleType;
+                if (reverse) data['$']['reverse'] = reverse;
+                if (wholeNumbers) data['$']['wholeNumbers'] = wholeNumbers;
+                if (!changeOnClick) data['$']['changeOnClick'] = changeOnClick;
             }
-            if (soundVolumeScale > 1) {
-                data['$']['volume'] = volume
+            break;
+        case "ProgressBar":
+            {
+                let { reverse, titleType } = extensionData;
+                if (titleType) data['$']['titleType'] = ProgressTitleType[titleType];
+                if (reverse) data['$']['reverse'] = reverse;
             }
-            if (sound) {
-                data['$']['sound'] = sound;
+            break;
+        case "ComboBox":
+            {
+                let { str } = extensionData;
+                if (str) data['$']['dropdown'] = str;
             }
+            break;
+        case "ScrollBar":
+            {
+                let { fixedGripSize } = extensionData;
+                if (fixedGripSize) data['$']['fixedGripSize'] = fixedGripSize;
+            }
+            break;
+        case "Label":
+            data = {}
             break;
         default:
             console.log("parseExtension:", type, extensionData);
             break;
     }
-
     return data;
 }
 
@@ -3088,12 +3168,13 @@ function parseList(content) {
     let { defaultItem,
         align, vAlign,
         overflow, scroll,
-        childrenRenderOrder, selectionMode,
+        childrenRenderOrder, apexIndex,
+        selectionMode, margin,
         autoResizeItem, scrollItemToViewOnClick,
         foldInvisibleItems, layout,
         lineGap, columnGap,
         lineCount, columnCount,
-        selectionController } = content;
+        selectionController, clipSoftness } = content;
     if (!scroll) scroll = {};
     let { flags, scrollBarMargin,
         footerRes, headerRes,
@@ -3104,7 +3185,7 @@ function parseList(content) {
     if (selectionMode) objectData.selectionMode = ListSelectionMode[selectionMode];
     if (layout) objectData.layout = ListLayoutType[layout];
     if (overflow) objectData.overflow = OverflowType[overflow];
-    objectData.scroll = ScrollType[scrollType];
+    if (scrollType != 1) objectData.scroll = ScrollType[scrollType]; // default 1
     if (flags) objectData.scrollBarFlags = flags;
     if (scrollBarDisplay) objectData.scrollBar = ScrollBarDisplayType[scrollBarDisplay];
     if (scrollBarMargin && !isEmptyObject(scrollBarMargin)) {
@@ -3117,10 +3198,21 @@ function parseList(content) {
     if (columnCount) objectData.columnCount = columnCount;
     if (hzScrollBarRes || vtScrollBarRes) objectData.scrollBarRes = `${hzScrollBarRes ? hzScrollBarRes : ""},${vtScrollBarRes ? vtScrollBarRes : ""}`;
     if (headerRes || footerRes) objectData.ptrRes = `${headerRes ? headerRes : ""},${footerRes ? footerRes : ""}`;
+    if (margin) {
+        let { top, bottom, left, right } = margin;
+        let marginStr = `${top},${bottom},${left},${right}`;
+        objectData.margin = marginStr;
+    }
+    if (clipSoftness) {
+        let { x, y } = clipSoftness;
+        let clipSoftnessStr = `${x},${y}` != "0,0" ? `${x},${y}` : null;
+        objectData.clipSoftness = clipSoftnessStr;
+    }
     objectData.defaultItem = defaultItem;
     objectData.align = align == "left" ? null : align;
     objectData.vAlign = vAlign == "top" ? null : vAlign;
     if (childrenRenderOrder) objectData.renderOrder = ChildrenRenderOrder[childrenRenderOrder];
+    if (apexIndex) objectData.apexIndex = apexIndex;
     if (!autoResizeItem) objectData.autoItemSize = autoResizeItem;
     if (!scrollItemToViewOnClick) objectData.scrollItemToViewOnClick = scrollItemToViewOnClick;
     if (foldInvisibleItems) objectData.foldInvisibleItems = foldInvisibleItems;
@@ -3141,24 +3233,28 @@ function parseText(content) {
         strikethrough, shadowColor,
         shadowOffsetX, shadowOffsetY,
         outlineColor, outline } = textFormat;
-    
-    objectData.align = align == "left" ? null : align;
-    objectData.vAlign = verticalAlign == "top" ? null : verticalAlign;
     if (bold) objectData.bold = bold;
     if (underline) objectData.underline = underline;
     if (italic) objectData.italic = italic;
-    if (letterSpacing) objectData.letterSpacing = letterSpacing;
-    if (leading != 3) objectData.leading = leading;
+    if (ubbEnabled) objectData.ubbEnabled = ubbEnabled;
+    if (template) objectData.template = template;
     if (font) objectData.font = font;
     objectData.fontSize = size;
     objectData.color = color == "#000000" ? null : color;
-    if (singleLine) objectData.singleLine = singleLine;
-    if (ubbEnabled) objectData.ubbEnabled = ubbEnabled;
-    if (template) objectData.template = template;
-    if(autoSize != 1)objectData.autoSize = AutoSizeType[autoSize]; // default:1
+    if (leading != 3) objectData.leading = leading;
+    if (letterSpacing) objectData.letterSpacing = letterSpacing;
+    objectData.align = align == "left" ? null : align;
+    objectData.vAlign = verticalAlign == "top" ? null : verticalAlign;
+    if (autoSize != 1) objectData.autoSize = AutoSizeType[autoSize]; // default:1
     objectData.strokeColor = outlineColor;
-    objectData.outline = outline;
-    if(strikethrough)objectData.strikethrough = strikethrough;
+    if (singleLine) objectData.singleLine = singleLine;
+    if (parseFloat(outline).toString() != "NaN" && outline != 2) {
+        if (outline > 0) {
+            outline--;
+        }
+        objectData.strokeSize = outline - 1; // default:1
+    }
+    if (strikethrough) objectData.strikethrough = strikethrough;
     objectData.shadowColor = shadowColor;
     objectData.shadowOffsetX = shadowOffsetX;
     objectData.shadowOffsetY = shadowOffsetY;
@@ -3179,7 +3275,8 @@ const handleSprites = async (spritesMap, flag = true) => {
         let { name, path, atlas, rect, rotated } = item;
         if (!name) { // atlas temp
             name = key;
-            path = temp
+            path = temp;
+            flag = true;
         }
         let output = path ? `${outputPath}${importFileName}${path}${name}` : `${outputPath}${importFileName}/${name}`;
         output = flag ? `${output}.png` : output;

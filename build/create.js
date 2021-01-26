@@ -1,12 +1,6 @@
 const ByteBuffer = require("bytebuffer");
 const { xml2json } = require('../utils/utils');
 const fs = require('fs');
-
-// fs.writeFileSync(`./output/${fileName}/package.xml`, fairyTML, { encoding: "utf-8" })
-const createEntryFile = (path, file) => {
-    fs.writeFileSync("./output/test.fairy", fairyTML, { encoding: "utf-8" })
-}
-
 const createMovieClip = async (data, srcImageInput, output) => {
     let { content, id, size } = data;
     let flag = typeof content === "string"
@@ -82,6 +76,4 @@ const createMovieClip = async (data, srcImageInput, output) => {
     fs.writeFileSync(output, buf.buffer);
     console.log("createMovieClip done");
 }
-
-exports.createEntryFile = createEntryFile;
 exports.createMovieClip = createMovieClip;
