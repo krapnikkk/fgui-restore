@@ -12,7 +12,7 @@ process.on("uncaughtException", function (err) {
 });
 
 const XMLHeader = '<?xml version="1.0" encoding="utf-8"?>\n';
-let importFileName = "Basics",
+let importFileName = "Transition",
     inputPath = "./test/",
     outputPath = './output/',
     temp = '/temp/',
@@ -211,7 +211,25 @@ let importFileName = "Basics",
         "value",
         "max"
     ],
-    packageItemMap = {},
+    ActionType = [
+        "XY",
+        "Size",
+        "Scale",
+        "Pivot",
+        "Alpha",
+        "Rotation",
+        "Color",
+        "Animation",
+        "Visible",
+        "Sound",
+        "Transition",
+        "Shake",
+        "ColorFilter",
+        "Skew",
+        "Text",
+        "Icon",
+        "Unknown"
+    ],
     UIConfig = {},// default
     GearType = [
         "gearDisplay", "gearXY", "gearSize", "gearLook", "gearColor",
@@ -1374,8 +1392,8 @@ function transitionSetup(buffer) {
 
             item.tweenConfig = { "startValue": {}, "endValue": {} };
             item.tweenConfig.duration = buffer.readFloat();
-            if (item.time + item.tweenConfig.duration > data.totalDuration)
-                data.totalDuration = item.time + item.tweenConfig.duration;
+            // if (item.time + item.tweenConfig.duration > data.totalDuration)
+            //     data.totalDuration = item.time + item.tweenConfig.duration;
             item.tweenConfig.easeType = buffer.readByte();
             item.tweenConfig.repeat = buffer.readInt();
             item.tweenConfig.yoyo = buffer.readBool();
@@ -1396,44 +1414,45 @@ function transitionSetup(buffer) {
                     let pts = [];
                     for (let j = 0; j < pathLen; j++) {
                         let curveType = buffer.readByte();
+                        let x = buffer.readFloat();
+                        let y = buffer.readFloat();
+                        let control1_x, control1_y, control2_x, control2_y;
                         switch (curveType) {
                             case 1:
+                                control1_x = buffer.readFloat();
+                                control1_y = buffer.readFloat();
                                 pts.push({
-                                    x: buffer.readFloat(),
-                                    y: buffer.readFloat(),
-                                    control1_x: buffer.readFloat(),
-                                    control1_y: buffer.readFloat()
+                                    x, y, control1_x, control1_y
                                 });
+
                                 break;
 
                             case 2:
+                                control1_x = buffer.readFloat();
+                                control1_y = buffer.readFloat();
+                                control2_x = buffer.readFloat();
+                                control2_y = buffer.readFloat();
                                 pts.push({
-                                    x: buffer.readFloat(),
-                                    y: buffer.readFloat(),
-                                    control1_x: buffer.readFloat(),
-                                    control1_y: buffer.readFloat(),
-                                    control2_x: buffer.readFloat(),
-                                    control2_y: buffer.readFloat()
+                                    x, y, control1_x, control1_y, control2_x, control2_y
                                 });
                                 break;
 
                             default:
                                 pts.push({
-                                    x: buffer.readFloat(),
-                                    y: buffer.readFloat(),
+                                    x,
+                                    y,
                                     curveType
                                 });
                                 break;
                         }
                     }
-
                     item.tweenConfig.path = pts;
                 }
             }
         }
         else {
-            if (item.time > data.totalDuration)
-                data.totalDuration = item.time;
+            // if (item.time > data.totalDuration)
+            //     data.totalDuration = item.time;
 
             buffer.seek(curPos, 2);
 
@@ -1447,10 +1466,10 @@ function transitionSetup(buffer) {
 
 function decodeValue(item, buffer, value) {
     switch (item.type) {
-        case 0:
-        case 1:
-        case 2:
-        case 3:
+        case 0: // XY
+        case 1: // Size
+        case 3: // Pivot
+        case 13: // Skew
             value.b1 = buffer.readBool();
             value.b2 = buffer.readBool();
             value.f1 = buffer.readFloat();
@@ -1460,48 +1479,48 @@ function decodeValue(item, buffer, value) {
                 value.b3 = buffer.readBool(); //percent
             break;
 
-        case 4:
-        case 5:
+        case 4: // Alpha
+        case 5: // Rotation
             value.b1 = value.b2 = true;
             value.f1 = buffer.readFloat();
             break;
 
-        case 6:
+        case 2: // Scale
             value.b1 = value.b2 = true;
             value.f1 = buffer.readFloat();
             value.f2 = buffer.readFloat();
             break;
 
-        case 7:
+        case 6: // Color
             value.b1 = value.b2 = true;
             value.f1 = buffer.readColor();
             break;
 
-        case 8:
+        case 7: // Animation
             value.playing = buffer.readBool();
             value.frame = buffer.readInt();
             break;
 
-        case 9:
+        case 8: // Visible
             value.visible = buffer.readBool();
             break;
 
-        case 10:
+        case 9: // Sound
             value.sound = buffer.readS();
             value.volume = buffer.readFloat();
             break;
 
-        case 11:
+        case 10: // Transition
             value.transName = buffer.readS();
             value.playTimes = buffer.readInt();
             break;
 
-        case 12:
+        case 11: // Shake
             value.amplitude = buffer.readFloat();
             value.duration = buffer.readFloat();
             break;
 
-        case 13:
+        case 12: // ColorFilter
             value.b1 = value.b2 = true;
             value.f1 = buffer.readFloat();
             value.f2 = buffer.readFloat();
@@ -1509,8 +1528,8 @@ function decodeValue(item, buffer, value) {
             value.f4 = buffer.readFloat();
             break;
 
-        case 14:
-        case 15:
+        case 14: // Text
+        case 15: // Icon
             value.text = buffer.readS();
             break;
     }
@@ -2587,6 +2606,7 @@ const parseJSON2XML = (json) => {
         objectType, overflow,
         scroll, margin,
         hitTestId, controllers,
+        transitions,
         pivotX, pivotY,
         isPivot, relations,
         extensionData, children,
@@ -2649,10 +2669,18 @@ const parseJSON2XML = (json) => {
             component[type] = extensionProps;
         }
     }
+
+    // controllers
     let controller = parseControllers(controllers);
     if (controller) {
         component['controller'] = controller;
     }
+
+    let transtion = parseTransitions(transitions);
+    if (transtion) {
+
+    }
+
     if (children) {
         component['displayList'] = parseDisplayList(children, json);
     }
@@ -2674,6 +2702,132 @@ function parseControllers(controllers) {
         })
         return { $: { name, pages, selected } };
     })
+}
+
+function parseTransitions(transitions) {
+    return transitions.map((transition) => {
+        let { name, options, autoPlay, autoPlayTimes, autoPlayDelay, items } = transition;
+        let $ = { name };
+        if (options) $.options = options;
+        if (autoPlay) $.autoPlay = autoPlay;
+        if (autoPlayTimes) $.autoPlayTimes = autoPlayTimes;
+        if (autoPlayDelay) $.autoPlayDelay = autoPlayDelay;
+        if (items.length > 0) $.item = [];
+        items.forEach((item) => {
+            let { type, value, time, targetId, label, tweenConfig, tween } = item;
+            if (targetId == "") {
+                targetId = null;
+            }
+            if (!tween) {
+                let args = getActionValue(value);
+                $.item.push({
+                    $: {
+                        time,
+                        type: ActionType[type],
+                        target,
+                        value:args
+                    }
+                });
+            } else {
+                let { duration, easeType, repeat, yoyo, endLabel, startValue, endValue } = tweenConfig;
+                let { b1, b2,
+                    b3,
+                    f1, f2, f3, f4,
+                    playing, frame,
+                    visible, sound,
+                    volume, transName,
+                    playTimes, amplitude,
+                    shakeDuration, text } = startValue;
+            }
+
+
+
+
+        })
+        return { $ }
+    })
+}
+
+function getActionValue(type, value) {
+    let { b1, b2,
+        b3,
+        f1, f2, f3, f4,
+        playing, frame,
+        visible, sound,
+        volume, transName,
+        playTimes, amplitude,
+        shakeDuration, text } = value;
+    switch (type) {
+        case 0:
+            console.log(b1, b2, f1, f2);
+            debugger;
+            value = `${b1},${b2}`;
+        case 1: // Size
+        case 3: // Pivot
+        case 13: // Skew
+            value.b1 = buffer.readBool();
+            value.b2 = buffer.readBool();
+            value.f1 = buffer.readFloat();
+            value.f2 = buffer.readFloat();
+
+            if (buffer.version >= 2 && item.type == 0)
+                value.b3 = buffer.readBool(); //percent
+            break;
+
+        case 4: // Alpha
+        case 5: // Rotation
+            value.b1 = value.b2 = true;
+            value.f1 = buffer.readFloat();
+            break;
+
+        case 2: // Scale
+            value.b1 = value.b2 = true;
+            value.f1 = buffer.readFloat();
+            value.f2 = buffer.readFloat();
+            break;
+
+        case 6: // Color
+            value.b1 = value.b2 = true;
+            value.f1 = buffer.readColor();
+            break;
+
+        case 7: // Animation
+            value.playing = buffer.readBool();
+            value.frame = buffer.readInt();
+            break;
+
+        case 8: // Visible
+            value.visible = buffer.readBool();
+            break;
+
+        case 9: // Sound
+            value.sound = buffer.readS();
+            value.volume = buffer.readFloat();
+            break;
+
+        case 10: // Transition
+            value.transName = buffer.readS();
+            value.playTimes = buffer.readInt();
+            break;
+
+        case 11: // Shake
+            value.amplitude = buffer.readFloat();
+            value.duration = buffer.readFloat();
+            break;
+
+        case 12: // ColorFilter
+            value.b1 = value.b2 = true;
+            value.f1 = buffer.readFloat();
+            value.f2 = buffer.readFloat();
+            value.f3 = buffer.readFloat();
+            value.f4 = buffer.readFloat();
+            break;
+
+        case 14: // Text
+        case 15: // Icon
+            value.text = buffer.readS();
+            break;
+    }
 }
 
 function parseDisplayList(children, parent) {
@@ -2861,7 +3015,7 @@ function parseObject(objectType, content, controllers) {
                             titleColor, visibleItemCount,
                             selectionController } = content;
                         // todo
-                        if(items){
+                        if (items) {
                             debugger;
                         }
                         extensionData[extensionName] = {
