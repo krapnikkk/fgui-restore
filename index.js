@@ -12,7 +12,7 @@ process.on("uncaughtException", function (err) {
 });
 
 const XMLHeader = '<?xml version="1.0" encoding="utf-8"?>\n';
-let importFileName = "Transition",
+let importFileName = "Basics",
     inputPath = "./test/",
     outputPath = './output/',
     temp = '/temp/',
@@ -63,10 +63,10 @@ let importFileName = "Transition",
         "none"
     ],
     ListLayoutType = [
-        "singleColumn",
-        "singleRow",
-        "flowHorizontal",
-        "flowVertical",
+        "colum",
+        "row",
+        "flow_hz",
+        "flow_vt",
         "pagination"
     ],
     ButtonMode = [
@@ -229,6 +229,11 @@ let importFileName = "Transition",
         "Text",
         "Icon",
         "Unknown"
+    ],
+    PopupDirection = [
+        "auto",
+        "up",
+        "down"
     ],
     UIConfig = {},// default
     GearType = [
@@ -1023,9 +1028,11 @@ function decodeGraphBefore(rawData, position) {
             cnt = rawData.readShort();
             let points = [];
             points.length = cnt;
-            for (i = 0; i < cnt; i++)
-                points[i] = rawData.readFloat();
-
+            for (i = 0; i < cnt; i++) {
+                let point = rawData.readFloat();
+                if (point) point = point;
+                points[i] = point
+            }
             data.shape = { points, fillColor, lineSize, lineColor };
         }
         else if (type == 4) {
@@ -1035,8 +1042,11 @@ function decodeGraphBefore(rawData, position) {
             let distances;
             if (cnt > 0) {
                 distances = [];
-                for (i = 0; i < cnt; i++)
-                    distances[i] = rawData.readFloat();
+                for (i = 0; i < cnt; i++) {
+                    let distance = rawData.readFloat();
+                    if (distance) distance = distance.toFixed(2);
+                    distances[i] = distance
+                }
             }
 
             data.shape = { sides, lineSize, fillColor, lineColor, fillColor, startAngle, distances };
@@ -1149,7 +1159,7 @@ function decodeLoaderBefore(rawData, position) {
 function decodeGroupBefore(rawData, position) {
     let data = {};
     rawData.seek(position, 5);
-    data.advance = true;
+    data.advanced = true;
     data.layout = rawData.readByte();
     data.lineGap = rawData.readInt();
     data.columnGap = rawData.readInt();
@@ -1934,7 +1944,12 @@ function decodeComboBoxAfter(rawData, position) {
     iv = rawData.readShort();
     if (iv >= 0)
         data.selectionController = iv;
-
+    if (rawData.version >= 5) {
+        str = rawData.readS();
+        if (str != null)
+            data.sound = str;
+        data.volume = rawData.readFloat();
+    }
     return data;
 }
 
@@ -2242,7 +2257,7 @@ function decodeGObjectBefore(rawData, position) {
     if (rawData.readBool()) {
         data.pivotX = rawData.readFloat();
         data.pivotY = rawData.readFloat();
-        data.isPivot = rawData.readBool();
+        data.anchor = rawData.readBool();
     }
 
     f1 = rawData.readFloat();
@@ -2608,7 +2623,7 @@ const parseJSON2XML = (json) => {
         hitTestId, controllers,
         transitions,
         pivotX, pivotY,
-        isPivot, relations,
+        anchor, relations,
         extensionData, children,
         opaque, maskId, reversedMask,
         rootContainer, remark,
@@ -2629,7 +2644,7 @@ const parseJSON2XML = (json) => {
     $.restrictSize = restrictSize;
     let pivot = `${pivotX},${pivotY}` != "undefined,undefined" ? `${pivotX},${pivotY}` : null;
     $.pivot = pivot;
-    if (isPivot) $.isPivot = isPivot;
+    if (anchor) $.anchor = anchor;
 
     // scroll
     if (overflow) $.overflow = OverflowType[overflow];
@@ -2725,7 +2740,7 @@ function parseTransitions(transitions) {
                         time,
                         type: ActionType[type],
                         target,
-                        value:args
+                        value: args
                     }
                 });
             } else {
@@ -2843,18 +2858,21 @@ function parseDisplayList(children, parent) {
             skewX, skewY,
             id, name,
             x, y,
+            rotation,
             pivotX, pivotY,
             gears, grayed,
             groupId, touchable,
-            visible, isPivot,
+            visible, anchor,
             alpha, customData,
             tooltips } = content;
         let size = `${width},${height}` != "undefined,undefined" ? `${width},${height}` : null;
         let scale = `${scaleX},${scaleY}` != "undefined,undefined" ? `${Math.round(scaleX * 100) / 100},${Math.round(scaleY * 100) / 100}` : null;
         let skew = `${skewX},${skewY}` != "undefined,undefined" ? `${skewX},${skewY}` : null;
         let xy = `${x},${y}`;
+
+        if (alpha) alpha = alpha.toFixed(2);
         let pivot = `${pivotX},${pivotY}` != "undefined,undefined" ? `${pivotX},${pivotY}` : null;
-        isPivot ? isPivot : isPivot = null;
+        anchor ? anchor : anchor = null;
         let fileName;
         let GObjectData = parseObject(objectType, content, controllers);
         let { objectData, extensionData, item } = GObjectData;
@@ -2875,13 +2893,13 @@ function parseDisplayList(children, parent) {
             group = parent["children"][groupId]['content']['name'];
         }
         let originData = {
-            "$": { id, name, src, fileName, xy, size, scale, skew, customData, tooltips, alpha, pivot, isPivot, touchable, grayed, group, visible }
+            "$": { id, name, src, fileName, xy, pivot, anchor, size, scale, skew, rotation, customData, tooltips, alpha, touchable, grayed, group, visible }
         };
         if (objectData) Object.assign(originData["$"], objectData);
 
         // gear
         if (gears.length > 0) {
-            let gearObject = parseGear(gears, controllers);
+            let gearObject = parseGear(gears, controllers, content);
             Object.assign(originData, gearObject);
         }
 
@@ -2906,16 +2924,17 @@ function parseObject(objectType, content, controllers) {
     switch (objectType) {
         case "Image":
             {
-                let { image, flip } = content;
+                let { image, flip, color } = content;
                 if (!image) image = {};
                 let { fillMethod, fillOrigin, fillClockwise, fillAmount } = image;
+                if (color) objectData.color = rgbaToHex(color, false);
+                if (flip) objectData.flip = FlipType[flip];
                 if (fillMethod) objectData.fillMethod = fillMethodType[fillMethod];
                 if (fillOrigin) objectData.fillOrigin = FillOrigin[fillOrigin];
                 if (!fillClockwise) objectData.fillClockwise = fillClockwise;
                 if (parseFloat(fillAmount).toString() != "NaN" && fillAmount != 1) {
                     objectData.fillAmount = +(+fillAmount.toFixed(2)) * 100;
                 }
-                if (flip) objectData.flip = FlipType[flip];
             }
             break;
         case "MovieClip":
@@ -2931,17 +2950,18 @@ function parseObject(objectType, content, controllers) {
                 let { shape } = content;
                 let { lineSize, lineColor,
                     fillColor, cornerRadius,
-                    distances, sides,
-                    startAngle } = shape;
+                    distances, points,
+                    sides, startAngle } = shape;
                 if (!shape) shape = {};
                 objectData.type = GraphType[shape.type];
                 if (lineSize != 1) objectData.lineSize = lineSize; // default
                 if (lineColor != "#ff000000") objectData.lineColor = lineColor;
                 if (fillColor != "#ffffffff") objectData.fillColor = fillColor;
                 if (cornerRadius) objectData.corner = `${cornerRadius[0]}`;
+                objectData.sides = sides;
                 if (startAngle) objectData.startAngle = startAngle;
                 objectData.distances = distances;
-                objectData.sides = sides;
+                objectData.points = points;
             }
             break;
         case "Text":
@@ -3002,8 +3022,9 @@ function parseObject(objectType, content, controllers) {
                     {
 
                         let { title, icon, titleColor, titleFontSize } = content;
+                        if (titleColor) titleColor = rgbaToHex(titleColor, false);
                         extensionData[extensionName] = {
-                            "$": { title, icon, titleColor, titleFontSize }
+                            "$": { title, titleColor, icon, titleFontSize }
                         };
                     }
                     break;
@@ -3011,15 +3032,32 @@ function parseObject(objectType, content, controllers) {
                     {
                         let { items, values,
                             icons, popupDirection,
-                            selected, text,
+                            // selected, 
+                            text, sound,
+                            volume,
                             titleColor, visibleItemCount,
                             selectionController } = content;
                         // todo
-                        if (items) {
-                            debugger;
+                        let item = [];
+                        items.forEach((ele, idx) => {
+                            let icon = icons ? icons[idx] : null;
+                            let value = values ? values[idx] : null;
+                            item.push({ $: { title: ele, value, icon } })
+                        })
+                        if (selectionController > -1) selectionController = controllers[selectionController]['name'];
+                        if (!visibleItemCount) visibleItemCount = null;
+                        let direction;
+                        if (popupDirection) direction = PopupDirection[popupDirection];
+                        if (titleColor) titleColor = rgbaToHex(titleColor, false);
+                        if (volume != 1) {
+                            volume = (volume * 100).toFixed(0);
+                        } else {
+                            volume = null;
                         }
+                        if (items[0] == text) text = null;
                         extensionData[extensionName] = {
-                            "$": { popupDirection, selected, text, selectionController, titleColor, visibleItemCount }
+                            "$": { title: text, titleColor, visibleItemCount, direction, selectionController, sound, volume },
+                            item
                         };
                     }
                     break;
@@ -3081,8 +3119,8 @@ function parseObject(objectType, content, controllers) {
             });
             break;
         case "Group":
-            let { advance, layout, lineGap, columnGap, excludeInvisibles, autoSizeDisabled, mainGridIndex } = content;
-            objectData.advance = advance;
+            let { advanced, layout, lineGap, columnGap, excludeInvisibles, autoSizeDisabled, mainGridIndex } = content;
+            objectData.advanced = advanced;
             if (layout) objectData.layout = layout;
             if (lineGap) objectData.lineGap = lineGap;
             if (columnGap) objectData.columnGap = columnGap;
@@ -3098,7 +3136,7 @@ function parseObject(objectType, content, controllers) {
     return { objectData, extensionData, item };
 }
 
-function parseGear(gears, controllers) {
+function parseGear(gears, controllers, content) {
     let gearObject = {};
     gears.forEach((gear) => {
         let { controllerId, pages, gearName, status, extStatus, defaultValues, defaultExtStatus, tweenConfig, positionsInPercent, condition } = gear;
@@ -3137,7 +3175,7 @@ function parseGear(gears, controllers) {
                 case "gearLook":
                     if (!isEmptyObject(item)) {
                         let { alpha, rotation, grayed, touchable } = item;
-                        value = `${alpha},${rotation},${+grayed},${+touchable}`;
+                        value = `${alpha.toFixed(2)},${rotation},${+grayed},${+touchable}`;
                     }
                     if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
                         let { alpha, rotation, grayed, touchable } = defaultValues;
@@ -3147,12 +3185,13 @@ function parseGear(gears, controllers) {
                 case "gearColor":
                     if (!isEmptyObject(item)) {
                         let { color, strokeColor } = item;
-                        // if (strokeColor == "rgb(0,0,0)") strokeColor = null; version 3.0
+                        // console.log(content); // todo compare object color & default
+                        if (strokeColor == "rgb(0,0,0)") strokeColor = null; // version 3.0
                         value = `${rgbaToHex(color, false)},${rgbaToHex(strokeColor, false)}`;
                     }
                     if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
                         let { color, strokeColor } = defaultValues;
-                        // if (strokeColor == "rgb(0,0,0)") strokeColor = null; version 3.0
+                        if (strokeColor == "rgb(0,0,0)") strokeColor = null; // version  3.0
                         defaultStr = `${rgbaToHex(color, false)},${rgbaToHex(strokeColor, false)}`;
                     }
                     break;
@@ -3171,7 +3210,7 @@ function parseGear(gears, controllers) {
                         value = `${item.default}`;
                     }
                     if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
-                        defaultStr = `${item.default}`;
+                        defaultStr = `${defaultValues.default}`;
                     }
                     break;
                 case "gearIcon":
@@ -3179,7 +3218,7 @@ function parseGear(gears, controllers) {
                         value = `${item.default}`;
                     }
                     if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
-                        defaultStr = `${item.default}`;
+                        defaultStr = `${defaultValues.default}`;
                     }
                     break;
                 case "gearText":
@@ -3187,7 +3226,7 @@ function parseGear(gears, controllers) {
                         value = `${item.default}`;
                     }
                     if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
-                        defaultStr = `${item.default}`;
+                        defaultStr = `${defaultValues.default}`;
                     }
                     break;
 
