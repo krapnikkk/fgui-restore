@@ -8,7 +8,6 @@ const { createMovieClip } = require('./build/create');
 
 process.on("uncaughtException", function (err) {
     console.log(err);
-    debugger;
 });
 
 const XMLHeader = '<?xml version="1.0" encoding="utf-8"?>\n';
@@ -16,7 +15,8 @@ let importFileName = "Basics",
     inputPath = "./test/",
     outputPath = './output/',
     temp = '/temp/',
-    tempPath = `${outputPath}${importFileName}${temp}`,
+    defaultFPS = 24;
+tempPath = `${outputPath}${importFileName}${temp}`,
     pkgName = "",
     pkgId = "",
     UIPackage = {},
@@ -141,7 +141,7 @@ let importFileName = "Basics",
         "vertical",
         "both"
     ],
-    easeType = [
+    EaseType = [
         "Linear",
         "Sine.In",
         "Sine.Out",
@@ -958,7 +958,7 @@ function decodeComponentData(contentItem, files) {
 
     rawData.seek(0, 4);
 
-    pi.customData = rawData.skip(2); //customData
+    pi.remark = rawData.readS(); //component customData
     pi.opaque = rawData.readBool();
     let maskId = rawData.readShort();
     if (maskId != -1) {
@@ -968,13 +968,13 @@ function decodeComponentData(contentItem, files) {
     pi.hitTestId = rawData.readS();
     i1 = rawData.readInt();
     i2 = rawData.readInt();
-    if (pi.hitTestId != null) {
-        pi.hitTestId = _pixelHitTestDatas[hitTestId];//contentItem.owner.getItemById(hitTestId);
-        if (pi && pi.pixelHitTestData)
-            pi.rootContainer.hitArea = new PixelHitTest(pi.pixelHitTestData, i1, i2);
-    } else if (i1 != 0 && i2 != -1) {
-        pi.rootContainer.hitArea = pi.getChildAt(i2).displayObject;
-    }
+    // if (pi.hitTestId != null) {
+    //     pi.hitTestId = _pixelHitTestDatas[hitTestId];//contentItem.owner.getItemById(hitTestId);
+    //     if (pi && pi.pixelHitTestData)
+    //         pi.rootContainer.hitArea = new PixelHitTest(pi.pixelHitTestData, i1, i2);
+    // } else if (i1 != 0 && i2 != -1) {
+    //     pi.rootContainer.hitArea = pi.getChildAt(i2).displayObject;
+    // }
 
     rawData.seek(0, 5);
 
@@ -1071,7 +1071,7 @@ function decodeTextFieldBefore(rawData, position) {
     data.verticalAlign = c == 0 ? "top" : (c == 1 ? "middle" : "bottom");
     tf.leading = rawData.readShort();
     tf.letterSpacing = rawData.readShort();
-    data.ubbEnabled = rawData.readBool();
+    data.ubb = rawData.readBool();
     data.autoSize = rawData.readByte();
     tf.underline = rawData.readBool();
     tf.italic = rawData.readBool();
@@ -1084,7 +1084,7 @@ function decodeTextFieldBefore(rawData, position) {
 
     if (rawData.readBool()) //shadow
     {
-        tf.shadowColor = rawData.readColor();
+        tf.shadowColor = rgbaToHex(rawData.readColor(),false);
         let f1 = rawData.readFloat();
         let f2 = rawData.readFloat();
         tf.shadowOffsetX = f1;
@@ -1107,7 +1107,7 @@ function decodeTextInputBefore(rawData, position) {
 
     let str = rawData.readS();
     if (str != null)
-        data.promptText = str;
+        data.prompt = str;
 
     str = rawData.readS();
     if (str != null)
@@ -1292,7 +1292,7 @@ function setupItem(buffer, id) {
     let cnt;
     let i;
 
-    if (pkg.objectType == 9) { // GComponent todo
+    if (pkg.objectType == 9) { // GComponent 
         debugger;
         cnt = buffer.readShort();
         for (i = 0; i < cnt; i++) {
@@ -1377,7 +1377,7 @@ function transitionSetup(buffer) {
     data.autoPlay = buffer.readBool();
     data.autoPlayTimes = buffer.readInt();
     data.autoPlayDelay = buffer.readFloat();
-
+    data.totalDuration = 0;
     let cnt = buffer.readShort();
     for (let i = 0; i < cnt; i++) {
         let dataLen = buffer.readShort();
@@ -1402,12 +1402,12 @@ function transitionSetup(buffer) {
 
             item.tweenConfig = { "startValue": {}, "endValue": {} };
             item.tweenConfig.duration = buffer.readFloat();
-            // if (item.time + item.tweenConfig.duration > data.totalDuration)
-            //     data.totalDuration = item.time + item.tweenConfig.duration;
+            if (item.time + item.tweenConfig.duration > data.totalDuration)
+                data.totalDuration = item.time + item.tweenConfig.duration;
             item.tweenConfig.easeType = buffer.readByte();
             item.tweenConfig.repeat = buffer.readInt();
             item.tweenConfig.yoyo = buffer.readBool();
-            item.tweenConfig.endLabel = buffer.readS();
+            item.tweenConfig.label2 = buffer.readS();
 
             buffer.seek(curPos, 2);
 
@@ -1434,9 +1434,7 @@ function transitionSetup(buffer) {
                                 pts.push({
                                     x, y, control1_x, control1_y
                                 });
-
                                 break;
-
                             case 2:
                                 control1_x = buffer.readFloat();
                                 control1_y = buffer.readFloat();
@@ -1459,11 +1457,9 @@ function transitionSetup(buffer) {
                     item.tweenConfig.path = pts;
                 }
             }
-        }
-        else {
-            // if (item.time > data.totalDuration)
-            //     data.totalDuration = item.time;
-
+        } else {
+            if (item.time > data.totalDuration)
+                data.totalDuration = item.time;
             buffer.seek(curPos, 2);
 
             decodeValue(item, buffer, item.value);
@@ -1527,7 +1523,7 @@ function decodeValue(item, buffer, value) {
 
         case 11: // Shake
             value.amplitude = buffer.readFloat();
-            value.duration = buffer.readFloat();
+            value.shakeDuration = buffer.readFloat();
             break;
 
         case 12: // ColorFilter
@@ -1580,36 +1576,10 @@ function setupScroll(buffer) {
         data.scrollBarMargin.left = buffer.readInt();
         data.scrollBarMargin.right = buffer.readInt();
     }
-
     data.vtScrollBarRes = buffer.readS();
     data.hzScrollBarRes = buffer.readS();
     data.headerRes = buffer.readS();
     data.footerRes = buffer.readS();
-
-    // if ((flags & 1) != 0) data.displayOnLeft = true;
-    // if ((flags & 2) != 0) data.snapToItem = true;
-    // if ((flags & 4) != 0) data.displayInDemand = true;
-    // if ((flags & 8) != 0) data.pageMode = true;
-    // if (flags & 16)
-    //     data.touchEffect = true;
-    // else if (flags & 32)
-    //     data.touchEffect = false;
-    // else
-    //     data.touchEffect = true;
-    // if (flags & 64)
-    //     data.bouncebackEffect = true;
-    // else if (flags & 128)
-    //     data.bouncebackEffect = false;
-    // else
-    //     data.bouncebackEffect = true;
-
-    // if ((flags & 256) != 0) data.inertiaDisabled = true;
-    // if ((flags & 512) == 0) data.maskContainer.clipRect = {};
-    // if ((flags & 1024) != 0) data.floating = true;
-    // if ((flags & 2048) != 0) data.dontClipMargin = true;
-
-    // if (scrollBarDisplay == 0)
-    //     scrollBarDisplay = 1;
     data.scrollBarDisplay = scrollBarDisplay;
 
     return data;
@@ -1624,7 +1594,6 @@ function gearSetup(buffer, gearType) {
     let cnt = buffer.readShort();
     data.status = [];
     data.extStatus = [];
-    // todo
     // controller in this parent 
     if (gearName == "gearDisplay" || gearName == "gearDisplay2") {  // GearDisplay GearDisplay2
         data.pages = buffer.readSArray(cnt);
@@ -1635,14 +1604,14 @@ function gearSetup(buffer, gearType) {
                 page = i + "";
                 status = {};
             } else {
-                status = addStatus(gearType, page, buffer);
+                status = addStatus(gearType, buffer);
             }
             data.pages.push(page);
             data.status.push(status);
         }
 
         if (buffer.readBool()) {// default
-            data.defaultValues = addStatus(gearType, null, buffer);
+            data.defaultValues = addStatus(gearType, buffer);
         }
     }
 
@@ -1654,17 +1623,16 @@ function gearSetup(buffer, gearType) {
     }
 
     if (buffer.version >= 2) {
-        // todo positionsInPercent && condition
+        // positionsInPercent && condition
         if (gearName == "gearXY") { // gearXY
             if (buffer.readBool()) {
-                debugger;
                 data.positionsInPercent = true;
                 for (i = 0; i < cnt; i++) {
                     page = buffer.readS();
-                    if (page == null) {
+                    if (page === null) {
                         extStatus = {}
                     } else {
-                        extStatus = addExtStatus(page, buffer)
+                        extStatus = addExtStatus(buffer)
                     }
                     data.extStatus.push(extStatus);
                 }
@@ -1679,7 +1647,7 @@ function gearSetup(buffer, gearType) {
     return data;
 }
 
-function addStatus(type, page, buffer) {
+function addStatus(type, buffer) {
     let data = {};
     switch (GearType[type]) {
         case "gearSize":
@@ -1719,16 +1687,13 @@ function addStatus(type, page, buffer) {
             debugger;
             break;
     }
-
     return data;
-
-
 }
 
 function addExtStatus(buffer) {
     let data = {};
-    data.px = buffer.readFloat();
-    data.py = buffer.readFloat();
+    data.px = buffer.readFloat().toFixed(3);
+    data.py = buffer.readFloat().toFixed(3);
     return data;
 }
 
@@ -1850,7 +1815,6 @@ function decodeProgressBarAfter(rawData, position) {
     data.max = rawData.readInt();
     if (rawData.version >= 2)
         data.min = rawData.readInt();
-
     return data;
 }
 
@@ -1990,13 +1954,14 @@ function decodeLabelAfter(rawData, position) {
     let iv = rawData.readInt();
     if (iv != 0)
         data.titleFontSize = iv;
-
+    
     if (rawData.readBool()) {
+        debugger;
         let input = data.getTextField();
-        if (input instanceof GTextInput) {
+        if (input instanceof GTextInput) { // todo
             str = rawData.readS();
             if (str != null)
-                input.promptText = str;
+                input.prompt = str;
 
             str = rawData.readS();
             if (str != null)
@@ -2130,14 +2095,14 @@ function setupController(buffer) {
                 break;
 
             case 2: // "branch"
-                homePageIndex = controller.pageNames.indexOf(UIPackage.branch);
+                // homePageIndex = controller.pageNames.indexOf(UIPackage.branch);
                 if (homePageIndex == -1)
                     homePageIndex = 0;
                 break;
 
             case 3: // "letiable"
                 // todo
-                homePageIndex = controller.pageNames.indexOf(UIPackage.getlet(buffer.readS()));
+                // homePageIndex = controller.pageNames.indexOf(UIPackage.getlet(buffer.readS()));
                 if (homePageIndex == -1)
                     homePageIndex = 0;
                 break;
@@ -2276,26 +2241,22 @@ function decodeGObjectBefore(rawData, position) {
         data.grayed = true;
     let bm = rawData.readByte();
     const BlendModeTranslate = {
-        0: "NormalBlending",
-        1: "NoBlending",
-        2: "AdditiveBlending",
-        3: "MultiplyBlending",
-        4: "SubtractiveBlending",
+        1: "none",
+        2: "add",
+        3: "multiply",
+        4: "screen",
     }
-    data.blendMode = BlendModeTranslate[bm] || "NormalBlending";
+    data.blend = BlendModeTranslate[bm] || null;
 
     let filter = rawData.readByte();
     if (filter == 1) {
-        debugger;
-        data.filter = [rawData.readFloat(), rawData.readFloat(), rawData.readFloat(), rawData.readFloat()];
-        //todo set filter
-        // ToolSet.setColorFilter(data.displayObject,
-        //     [rawData.readFloat(), rawData.readFloat(), rawData.readFloat(), rawData.readFloat()]);
+        data.filter = "color";
+        data.filterData = [rawData.readFloat().toFixed(2), rawData.readFloat().toFixed(2), rawData.readFloat().toFixed(2), rawData.readFloat().toFixed(2)];
     }
 
     let str = rawData.readS();
     if (str != null)
-        data.data = str;
+        data.customData = str;
     return data;
 }
 
@@ -2327,7 +2288,6 @@ function constructExtension(type, buffer) {
 function constructButton(buffer) {
     let data = {};
     buffer.seek(0, 6);
-
     /**
      *  Common,
         Check,
@@ -2414,8 +2374,7 @@ function decodeBinary(buffer) {
             //     let _branchIndex = _branches.indexOf(_branch);
             // }
         }
-
-        branchIncluded = cnt > 0;
+        // branchIncluded = cnt > 0;
     }
 
     buffer.seek(indexTablePos, 1);
@@ -2645,7 +2604,7 @@ const parseJSON2XML = (json) => {
     let pivot = `${pivotX},${pivotY}` != "undefined,undefined" ? `${pivotX},${pivotY}` : null;
     $.pivot = pivot;
     if (anchor) $.anchor = anchor;
-
+    $.remark = remark;
     // scroll
     if (overflow) $.overflow = OverflowType[overflow];
     if (scrollType != 1) $.scroll = ScrollType[scrollType]; // default 1
@@ -2687,17 +2646,19 @@ const parseJSON2XML = (json) => {
 
     // controllers
     let controller = parseControllers(controllers);
-    if (controller) {
+    if (controller.length > 0) {
         component['controller'] = controller;
     }
 
-    let transtion = parseTransitions(transitions);
-    if (transtion) {
-
+    // transitions
+    let transition = parseTransitions(transitions, json);
+    if (transition.length > 0) {
+        component['transition'] = transition;
     }
 
-    if (children) {
-        component['displayList'] = parseDisplayList(children, json);
+    // children
+    if (children.length > 0) {
+        component['displayList'] = parseDisplayList(json);
     }
     let xml = json2xml(base);
     xml = xml.replace(/_{\$(\w+)}_/g, "");
@@ -2719,51 +2680,65 @@ function parseControllers(controllers) {
     })
 }
 
-function parseTransitions(transitions) {
+function parseTransitions(transitions, parent) {
     return transitions.map((transition) => {
         let { name, options, autoPlay, autoPlayTimes, autoPlayDelay, items } = transition;
         let $ = { name };
         if (options) $.options = options;
         if (autoPlay) $.autoPlay = autoPlay;
-        if (autoPlayTimes) $.autoPlayTimes = autoPlayTimes;
+        if (autoPlay && autoPlayTimes) $.autoPlayTimes = autoPlayTimes;
         if (autoPlayDelay) $.autoPlayDelay = autoPlayDelay;
-        if (items.length > 0) $.item = [];
-        items.forEach((item) => {
-            let { type, value, time, targetId, label, tweenConfig, tween } = item;
-            if (targetId == "") {
-                targetId = null;
+        let item = [];
+        let { width, height, children } = parent;
+        items.forEach((ele) => {
+            let { type, value, time, targetId, label, tweenConfig, tween } = ele;
+            let target;
+            if (targetId === "") {
+                targetId = 0;
+            } else {
+                target = children[targetId]['content']['id'];
             }
+            time *= defaultFPS;
+            time = time.toFixed(0);
             if (!tween) {
-                let args = getActionValue(value);
-                $.item.push({
+                let args = getActionValue(type, value, width, height);
+                item.push({
                     $: {
                         time,
                         type: ActionType[type],
                         target,
+                        label,
                         value: args
                     }
                 });
             } else {
-                let { duration, easeType, repeat, yoyo, endLabel, startValue, endValue } = tweenConfig;
-                let { b1, b2,
-                    b3,
-                    f1, f2, f3, f4,
-                    playing, frame,
-                    visible, sound,
-                    volume, transName,
-                    playTimes, amplitude,
-                    shakeDuration, text } = startValue;
+                let { duration, easeType, repeat, yoyo, label2, startValue, endValue } = tweenConfig;
+                let startValueArgs = getActionValue(type, startValue, width, height);
+                let endValueArgs = getActionValue(type, endValue, width, height);
+                if (!yoyo) yoyo = null;
+                if (!repeat) repeat = null;
+                duration *= defaultFPS;
+                duration = duration.toFixed(0);
+                ease = easeType != 5 ? EaseType[easeType] : null;
+                item.push({
+                    $: {
+                        time,
+                        type: ActionType[type],
+                        target,
+                        label,
+                        tween,
+                        startValue: startValueArgs,
+                        endValue: endValueArgs,
+                        duration, repeat, yoyo, label2, ease
+                    }
+                });
             }
-
-
-
-
         })
-        return { $ }
+        return { $, item }
     })
 }
 
-function getActionValue(type, value) {
+function getActionValue(type, value, width, height) {
     let { b1, b2,
         b3,
         f1, f2, f3, f4,
@@ -2772,81 +2747,89 @@ function getActionValue(type, value) {
         volume, transName,
         playTimes, amplitude,
         shakeDuration, text } = value;
+    let args;
     switch (type) {
         case 0:
-            console.log(b1, b2, f1, f2);
-            debugger;
-            value = `${b1},${b2}`;
-        case 1: // Size
-        case 3: // Pivot
-        case 13: // Skew
-            value.b1 = buffer.readBool();
-            value.b2 = buffer.readBool();
-            value.f1 = buffer.readFloat();
-            value.f2 = buffer.readFloat();
+            if (b3) { //percent
+                let pw = b1 ? (width * f1).toFixed(0) : "-";
+                let ph = b2 ? (height * f2).toFixed(0) : "-";
 
-            if (buffer.version >= 2 && item.type == 0)
-                value.b3 = buffer.readBool(); //percent
+                if (f1 != "-" && f1 != 1 & f1 != 0) f1 = f1.toFixed(3);
+                if (f2 != "-" && f2 != 1 & f2 != 0) f2 = f2.toFixed(3);
+                args = `${pw},${ph},${f1},${f2}`;
+            } else {
+                if (!b1) f1 = "-";
+                if (!b2) f2 = "-";
+                args = `${f1},${f2}`;
+            }
             break;
-
+        case 1: // Size
+            f1 = b1 ? f1 : "-";
+            f2 = b2 ? f2 : "-";
+            if (f1 != 1 && f1 != 0 && f1 != "-") f1 = f1.toFixed(0);
+            if (f2 != 1 && f2 != 0 && f2 != "-") f2 = f2.toFixed(0);
+            args = `${f1},${f2}`;
+            break;
+        case 3: // Pivot
+            args = `${f1},${f2}`;
+            break;
+        case 13: // Skew
+            f1 = b1 ? f1 : "-";
+            f2 = b2 ? f2 : "-";
+            if (f1 != 1 && f1 != 0 && f1 != "-") f1 = f1.toFixed(1);
+            if (f2 != 1 && f2 != 0 && f2 != "-") f2 = f2.toFixed(1);
+            args = `${f1},${f2}`;
+            break;
         case 4: // Alpha
+            if (f1 != 0 && f1 != 1) f1 = f1.toFixed(1)
+            args = `${f1}`;
+            break;
         case 5: // Rotation
-            value.b1 = value.b2 = true;
-            value.f1 = buffer.readFloat();
+            args = `${f1}`;
             break;
 
         case 2: // Scale
-            value.b1 = value.b2 = true;
-            value.f1 = buffer.readFloat();
-            value.f2 = buffer.readFloat();
+            args = `${f1},${f2}`;
             break;
 
         case 6: // Color
-            value.b1 = value.b2 = true;
-            value.f1 = buffer.readColor();
+            args = `${f1}`;
             break;
 
         case 7: // Animation
-            value.playing = buffer.readBool();
-            value.frame = buffer.readInt();
+            args = `${frame},${playing ? "p" : "s"}`;
             break;
 
         case 8: // Visible
-            value.visible = buffer.readBool();
+            args = `${visible}`;
             break;
 
         case 9: // Sound
-            value.sound = buffer.readS();
-            value.volume = buffer.readFloat();
+            args = `${sound},${Math.round(volume * 100)}`;
             break;
 
         case 10: // Transition
-            value.transName = buffer.readS();
-            value.playTimes = buffer.readInt();
+            args = `${transName},${playTimes}`;
             break;
 
         case 11: // Shake
-            value.amplitude = buffer.readFloat();
-            value.duration = buffer.readFloat();
+            args = `${amplitude},${shakeDuration}`;
             break;
 
         case 12: // ColorFilter
-            value.b1 = value.b2 = true;
-            value.f1 = buffer.readFloat();
-            value.f2 = buffer.readFloat();
-            value.f3 = buffer.readFloat();
-            value.f4 = buffer.readFloat();
+            args = `${f1},${f2},${f3},${f4}`;
             break;
 
         case 14: // Text
         case 15: // Icon
-            value.text = buffer.readS();
+            args = `${text}`;
             break;
     }
+    return args;
 }
 
-function parseDisplayList(children, parent) {
-    let { controllers } = parent;
+function parseDisplayList(parent) {
+    let { controllers, children } = parent;
     let displayList = {
         // "_{$1}_image": [],
     };
@@ -2864,6 +2847,7 @@ function parseDisplayList(children, parent) {
             groupId, touchable,
             visible, anchor,
             alpha, customData,
+            blend, filter, filterData,
             tooltips } = content;
         let size = `${width},${height}` != "undefined,undefined" ? `${width},${height}` : null;
         let scale = `${scaleX},${scaleY}` != "undefined,undefined" ? `${Math.round(scaleX * 100) / 100},${Math.round(scaleY * 100) / 100}` : null;
@@ -2873,6 +2857,7 @@ function parseDisplayList(children, parent) {
         if (alpha) alpha = alpha.toFixed(2);
         let pivot = `${pivotX},${pivotY}` != "undefined,undefined" ? `${pivotX},${pivotY}` : null;
         anchor ? anchor : anchor = null;
+        if (filter) filterData = filterData.join(",");
         let fileName;
         let GObjectData = parseObject(objectType, content, controllers);
         let { objectData, extensionData, item } = GObjectData;
@@ -2890,16 +2875,16 @@ function parseDisplayList(children, parent) {
         }
         let group;
         if (parseFloat(groupId).toString() != "NaN") {
-            group = parent["children"][groupId]['content']['name'];
+            group = parent["children"][groupId]['content']['id'];
         }
         let originData = {
-            "$": { id, name, src, fileName, xy, pivot, anchor, size, scale, skew, rotation, customData, tooltips, alpha, touchable, grayed, group, visible }
+            "$": { id, name, src, fileName, xy, pivot, anchor, size, scale, skew, rotation, blend, filter, filterData, customData, tooltips, alpha, touchable, grayed, group, visible }
         };
         if (objectData) Object.assign(originData["$"], objectData);
 
         // gear
         if (gears.length > 0) {
-            let gearObject = parseGear(gears, controllers, content);
+            let gearObject = parseGear(gears, parent, content);
             Object.assign(originData, gearObject);
         }
 
@@ -2910,6 +2895,7 @@ function parseDisplayList(children, parent) {
         }
         if (extensionData) Object.assign(originData, extensionData);
         if (objectType === "Tree") objectType = "List";
+        if (objectType === "InputText") objectType = "Text";
         displayList[`_{$${idx}}_${objectType.toLocaleLowerCase()}`] = originData;
         if (item) {
             displayList[`_{$${idx}}_${objectType.toLocaleLowerCase()}`]['item'] = item;
@@ -2971,10 +2957,11 @@ function parseObject(objectType, content, controllers) {
             objectData = parseText(content);
             break;
         case "InputText":
-            let { promptText, keyboardType, password, maxLength, restrict } = content;
+            let { prompt, keyboardType, password, maxLength, restrict } = content;
             objectData = parseText(content);
             if (restrict) objectData.restrict = restrict;
-            if (promptText) objectData.promptText = promptText;
+            objectData.input = true;
+            if (prompt) objectData.prompt = prompt;
             if (keyboardType) objectData.keyboardType = keyboardType;
             if (password) objectData.password = password;
             if (maxLength) objectData.maxLength = maxLength;
@@ -3037,7 +3024,6 @@ function parseObject(objectType, content, controllers) {
                             volume,
                             titleColor, visibleItemCount,
                             selectionController } = content;
-                        // todo
                         let item = [];
                         items.forEach((ele, idx) => {
                             let icon = icons ? icons[idx] : null;
@@ -3063,6 +3049,7 @@ function parseObject(objectType, content, controllers) {
                     break;
                 case "Slider":
                     let { value, max, min } = content;
+                    if (!min) min = null;
                     extensionData[extensionName] = {
                         "$": { value, max, min }
                     }
@@ -3136,7 +3123,8 @@ function parseObject(objectType, content, controllers) {
     return { objectData, extensionData, item };
 }
 
-function parseGear(gears, controllers, content) {
+function parseGear(gears, parent) {
+    let { controllers, width, height } = parent;
     let gearObject = {};
     gears.forEach((gear) => {
         let { controllerId, pages, gearName, status, extStatus, defaultValues, defaultExtStatus, tweenConfig, positionsInPercent, condition } = gear;
@@ -3150,7 +3138,7 @@ function parseGear(gears, controllers, content) {
                         value = `${x},${y}`;
                         if (positionsInPercent) {
                             let = { px, py } = extStatus[idx];
-                            value += `${px},${py}`;
+                            value += `,${px},${py}`;
                         }
                     }
                     if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
@@ -3158,7 +3146,7 @@ function parseGear(gears, controllers, content) {
                         defaultStr = `${x},${y}`;
                         if (positionsInPercent) {
                             let = { px, py } = defaultExtStatus[idx];
-                            defaultStr += `${px},${py}`;
+                            defaultStr += `,${px},${py}`;
                         }
                     }
                     break;
@@ -3263,7 +3251,7 @@ function parseGear(gears, controllers, content) {
         if (tweenConfig && tweenConfig.tween) {
             let { ease, delay, duration, tween } = tweenConfig;
             if (ease != 5) {
-                ease = easeType[ease];
+                ease = EaseType[ease];
             } else {
                 ease = null;
             }
@@ -3277,6 +3265,7 @@ function parseGear(gears, controllers, content) {
             }
             Object.assign(gearObject[gearName]['$'], { tween, ease, duration, delay });
         }
+        gearObject[gearName]['$']['positionsInPercent'] = positionsInPercent;
     });
     return gearObject;
 }
@@ -3416,7 +3405,7 @@ function parseList(content) {
 function parseText(content) {
     let objectData = {};
     let { textFormat, singleLine,
-        ubbEnabled, autoSize, text,
+        ubb, autoSize, text,
         align, verticalAlign, template } = content;
     if (!textFormat) textFormat = {};
     let { size, color,
@@ -3426,11 +3415,6 @@ function parseText(content) {
         strikethrough, shadowColor,
         shadowOffsetX, shadowOffsetY,
         outlineColor, outline } = textFormat;
-    if (bold) objectData.bold = bold;
-    if (underline) objectData.underline = underline;
-    if (italic) objectData.italic = italic;
-    if (ubbEnabled) objectData.ubbEnabled = ubbEnabled;
-    if (template) objectData.template = template;
     if (font) objectData.font = font;
     objectData.fontSize = size;
     objectData.color = color == "#000000" ? null : color;
@@ -3438,6 +3422,11 @@ function parseText(content) {
     if (letterSpacing) objectData.letterSpacing = letterSpacing;
     objectData.align = align == "left" ? null : align;
     objectData.vAlign = verticalAlign == "top" ? null : verticalAlign;
+    if (underline) objectData.underline = underline;
+    if (bold) objectData.bold = bold;
+    if (italic) objectData.italic = italic;
+    if (ubb) objectData.ubb = ubb;
+    if (template) objectData.template = template;
     if (autoSize != 1) objectData.autoSize = AutoSizeType[autoSize]; // default:1
     objectData.strokeColor = outlineColor;
     if (singleLine) objectData.singleLine = singleLine;
@@ -3449,8 +3438,8 @@ function parseText(content) {
     }
     if (strikethrough) objectData.strikethrough = strikethrough;
     objectData.shadowColor = shadowColor;
-    objectData.shadowOffsetX = shadowOffsetX;
-    objectData.shadowOffsetY = shadowOffsetY;
+    let shadowOffset = `${shadowOffsetX},${shadowOffsetY}` != "undefined,undefined"?`${shadowOffsetX},${shadowOffsetY}`:null;
+    objectData.shadowOffset = shadowOffset;
     objectData.text = text || "";
     return objectData;
 }
@@ -3561,8 +3550,6 @@ const createFileByData = (data, ext) => {
     }
     console.log("finish createFileByData");
 }
-
-
 
 start(`${inputPath}${importFileName}.bin`);
 

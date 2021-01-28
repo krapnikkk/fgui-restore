@@ -8,26 +8,14 @@ fgui-cli create [project] -version [verison]
 fgui-cli open []
 ```
 
-## 查找未使用资源
-```
-fgui-cli check
-```
-
-## 快捷浏览fgui发布后的资源文件[仅支持大部分H5平台的特性]
-```
-fgui-cli view [fileName]
-```
-
-## 还原fgui发布文件成原始资源文件
-```
-fgui-cli restore [fileName]
-```
 
 ## 支持版本
 
 已兼容版本 [向下兼容]
 buffer.version： 5
 FairyGUI Editor: 2020.3.3
+
+【还原出来的包资源文件推荐使用最新版编辑器打开】
 
 ### 还原程度
  - 将合并的纹理图片还原成碎图【统一png格式】
@@ -60,7 +48,7 @@ FairyGUI Editor: 2020.3.3
  - 【movieclip】packageDescription.resources[0].movieclip
  - 【sound】packageDescription.resources[0].sound
 
-## 二进制格式解析流程
+## 文件解析流程
  - createObject 【UIPackage】
  - constructFromResource【 GComponent | GImage | GMovieClip 】
  - controller.setup【controller】
@@ -71,10 +59,17 @@ FairyGUI Editor: 2020.3.3
  - trans.setupp 【transion】
  - constructExtension 【extension】
 
-## 细节优化
- - 是否显示调试结果
- - 异常事件处理机制
-
+## todo list [maybe]
+ [x] 【组件】组件自定义属性还原
+ [x] 【组件】组件出入场音效还原
+ [x] 【组件】属性控制中对原始属性的判断进行还原
+ [x] 【标签】标签中的标题为输入文本相关属性还原
+ [x] branch分支相关逻辑处理
+ [x] fnt文件初始化完善
+ [x] 校验需要还原文件的合法性&合理性及异常处理
+ [x] 浮点数数值精准还原
+ [x] 属性默认值及属性顺序精准还原
+ [x] and more
 
 ## 工程结构目录
 ├── utlis // 工具函数
