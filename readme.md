@@ -1,21 +1,31 @@
-## 快捷创建初始化项目
+## 写在前面
+
+<font size=4>本工程仅作学习研究使用，本意用于工程项目不幸破损，通过发布出来的资源文件进行紧急还原，请勿用于资源破解侵权等行为，否则后果自负！！</font>
+
+## 下载
+
 ```
-fgui-cli create [project] -version [verison]
+git clone git@github.com:krapnikkk/fgui-restore.git
 ```
 
-## 快捷打开工程 
-```
-fgui-cli open []
-```
+## 安装 
 
+```sh
+npm install
+```
+## 使用方法
+
+```
+node restore ./test/MainMenu.bin ./output 
+```
 
 ## 支持版本
 
-已兼容版本 [向下兼容]
-buffer.version： 5
-FairyGUI Editor: 2020.3.3
+数据版本 [向下兼容] : buffer.version： 5
 
-【还原出来的包资源文件推荐使用最新版编辑器打开】
+编辑器版本：[FairyGUI Editor: 2020.3.3](https://fairygui.com/product.html)
+
+【已测试官方DEMO工程99%高度还原，还原出来的包资源文件推荐使用最新版编辑器打开】
 
 ### 还原程度
  - 将合并的纹理图片还原成碎图【统一png格式】
@@ -69,10 +79,8 @@ FairyGUI Editor: 2020.3.3
  [x] 校验需要还原文件的合法性&合理性及异常处理
  [x] 浮点数数值精准还原
  [x] 属性默认值及属性顺序精准还原
+ [x] BMFont字体文件还原
  [x] and more
 
-## 工程结构目录
-├── utlis // 工具函数
-├── tpl // 模板文件
-├── view // 预览工程
-├── 
+### License ###
+MIT

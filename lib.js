@@ -2,16 +2,16 @@ const fs = require('fs');
 const zlib = require("zlib");
 const Jimp = require('jimp');
 const ByteArray = require('./ByteArray');
-const { resolve } = require('path');
-const { exists, xml2json, json2xml, getItemById, getObjectById, rgbaToHex, isEmptyObject, deleteObjectProps } = require('./utils/utils');
+const { resolve, dirname, basename } = require('path');
+const { exists, xml2json, json2xml, getItemById, getObjectById, rgbaToHex, deleteObjectProps } = require('./utils/utils');
 const { createMovieClip } = require('./build/create');
-
+const _ = require('lodash');
 process.on("uncaughtException", function (err) {
     console.log(err);
 });
 
 const XMLHeader = '<?xml version="1.0" encoding="utf-8"?>\n';
-let importFileName = "Chat",
+let importFileName = "Basics",
     inputPath = "./test/",
     outputPath = './output/',
     temp = '/temp/',
@@ -245,11 +245,19 @@ tempPath = `${outputPath}${importFileName}${temp}`,
  *  check package format
  *  decodeUncompressed only for [Laya/Egret/CocosCreateor] version 
  */
-
-const start = async (path) => {
-    console.time('start');
+// restore(`${inputPath}${importFileName}.bin`);
+const restore = async (path, output) => {
+    console.time('RestoreTask');
+    inputPath = dirname(path) + "/";
+    let tempName = basename(path).split(".");
+    tempName.pop()
+    importFileName = tempName;
+    if (output) outputPath = resolve(output) + "/";
+    if (!exists(output)) {
+        fs.mkdirSync(resolve(output));
+    }
     let buf = fs.readFileSync(`${path}`); // Buffer 
-    let arrayBuffer = Buffer.from(buf).buffer;
+    let arrayBuffer = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);;
     let ba = new ByteArray(arrayBuffer), pkgData;
     let formatFlag = ba.readUint(); // 1179080009
     if (formatFlag == 0x46475549) { // binary 
@@ -261,7 +269,8 @@ const start = async (path) => {
         await handlePackageFileXML(pkgData);
         await createByPackageXML(pkgData);
     }
-    console.timeEnd('start');
+    console.timeEnd('RestoreTask');
+    console.log(`restore ${importFileName} finish!! \noutputPath:${outputPath}`)
 }
 
 /** XML */
@@ -428,7 +437,7 @@ const createByPackageXML = async (pkgData) => {
     let soundInfo = packageData["packageDescription"]['resources']['sound'];
     if (soundInfo) {
         if (!Array.isArray(soundInfo)) soundInfo = [soundInfo];
-        handleSound(soundInfo, false);
+        handleSound(soundInfo);
     }
 
     let fontInfo = packageData["packageDescription"]['resources']['font'];
@@ -474,7 +483,7 @@ const createByPackageXML = async (pkgData) => {
     deleteTemp(tempPath);
 }
 
-const handlePackageDataBin = (pkgData,name) => {
+const handlePackageDataBin = (pkgData, name) => {
     let data = pkgData['package.xml'];
     let sprites = pkgData['sprites.bytes'];
     let pkgXmlData = {
@@ -524,11 +533,13 @@ const handlePackageDataBin = (pkgData,name) => {
                 if (element['scaleOption'] == 1) { // 9grid
                     item['$']['scale'] = '9grid';
                     let { x, y, width, height } = element['scale9Grid'];
-                    item['$']['scale9Grid'] = `${x},${y},${width},${height}`;
+                    item['$']['scale9grid'] = `${x},${y},${width},${height}`;
                 } else if (element['scaleOption'] == 2) { // tile
                     item['$']['scale'] = 'tile';
                 }
-                item['$']['name'] = item['$']['name'] + '.png';
+                if (item['$']['name'].indexOf('.png') == -1) {
+                    item['$']['name'] = item['$']['name'] + '.png';
+                }
                 images.push(item);
                 break;
             case 1:
@@ -545,7 +556,7 @@ const handlePackageDataBin = (pkgData,name) => {
                 components.push(item);
                 break;
             case 4:
-                atlas.push(item);
+                // atlas.push(item);
                 break;
             case 5:
                 item['$']['name'] = item['$']['name'] + '.fnt';
@@ -570,7 +581,7 @@ const handlePackageDataBin = (pkgData,name) => {
 }
 
 const handlePackageFileBin = async (data) => {
-    let str = handlePackageDataBin(data,pkgName);
+    let str = handlePackageDataBin(data, pkgName);
     let output = `${outputPath}${importFileName}`;
     if (!exists(output)) {
         fs.mkdirSync(resolve(output));
@@ -616,6 +627,7 @@ const createByPackageBin = async (pkgData) => {
         let spritesMap = pkgData['sprites.bytes'];
         imageInfo.forEach((item) => {
             let image = item['$'];
+            image.name = image.name.replace(".png", '');
             let key = image['id'];
             Object.assign(spritesMap[key], image);
         })
@@ -651,7 +663,7 @@ const createByPackageBin = async (pkgData) => {
             movieclip['content'] = decodeMovieclipData(id, sprites, files);
             movieclipMap[id] = movieclip;
         })
-        await handleMovieclip(movieclipMap);
+        await handleMovieclip(movieclipMap, false);
     }
 
     let componentInfo = packageData["packageDescription"]['resources']['component'];
@@ -667,7 +679,6 @@ const createByPackageBin = async (pkgData) => {
         })
         createFileByData(componentMap, "");
     }
-    // debugger;
     deleteTemp(tempPath);
 }
 
@@ -676,9 +687,10 @@ function deleteTemp(path) {
     if (exists(path)) {
         let tempfiles = fs.readdirSync(path);
         if (tempfiles) {
-            tempfiles.forEach((file) => {
+            for (let i = 0; i < tempfiles.length; i++) {
+                let file = tempfiles[i];
                 fs.unlinkSync(path + '/' + file);
-            });
+            }
         }
         fs.rmdirSync(path);
     }
@@ -1084,7 +1096,7 @@ function decodeTextFieldBefore(rawData, position) {
 
     if (rawData.readBool()) //shadow
     {
-        tf.shadowColor = rgbaToHex(rawData.readColor(),false);
+        tf.shadowColor = rgbaToHex(rawData.readColor(), false);
         let f1 = rawData.readFloat();
         let f2 = rawData.readFloat();
         tf.shadowOffsetX = f1;
@@ -1240,12 +1252,15 @@ function readItems(buffer, list, treeView) {
         nextPos += buffer.pos;
 
         str = buffer.readS();
+        let url;
         if (str == null) {
             str = list.defaultItem;
             if (!str) {
                 buffer.pos = nextPos;
                 continue;
             }
+        } else {
+            url = str;
         }
         if (treeView) {
             isFolder = buffer.readBool();
@@ -1258,6 +1273,7 @@ function readItems(buffer, list, treeView) {
         if (obj) {
             item = setupItem(buffer, id);
         }
+        item.url = url;
         // item.isFolder = isFolder; // wait for extension
         item.level = level;
         data.push(item);
@@ -1274,7 +1290,7 @@ function setupItem(buffer, id) {
 
     str = buffer.readS();
     if (str != null)
-        data.title = str;
+        data.title = str ? _.escape(str) : str;
     str = buffer.readS();
     if (str != null && pkg.objectType == 12) // GButton
         data.selectedTitle = str;
@@ -1286,12 +1302,12 @@ function setupItem(buffer, id) {
         data.selectedIcon = str;
     str = buffer.readS();
     if (str != null)
-        data.name = str;
+        data.name = _.escape(str);
 
     let cnt;
     let i;
 
-    if (pkg.objectType == 9) { // GComponent todo
+    if (pkg.type == 9) { // GComponent todo
         debugger;
         cnt = buffer.readShort();
         for (i = 0; i < cnt; i++) {
@@ -1944,7 +1960,7 @@ function decodeLabelAfter(rawData, position) {
     let str;
     str = rawData.readS();
     if (str != null)
-        data.title = str;
+        data.title = _.escape(str);
     str = rawData.readS();
     if (str != null)
         data.icon = str;
@@ -1953,7 +1969,7 @@ function decodeLabelAfter(rawData, position) {
     let iv = rawData.readInt();
     if (iv != 0)
         data.titleFontSize = iv;
-    
+
     if (rawData.readBool()) {
         debugger;
         let input = data.getTextField();
@@ -1998,7 +2014,7 @@ function decodeButtonAfter(rawData, position) {
 
     str = rawData.readS();
     if (str != null)
-        data.title = str;
+        data.title = _.escape(str);
     str = rawData.readS();
     if (str != null)
         data.selectedTitle = str;
@@ -2044,7 +2060,7 @@ function parseFont(font) {
     let { lineHeight, glyphs } = font;
     // todo complete font
     if (font.ttf) {
-        str += `info creator=UIBuilder\ncommon lineHeight=${lineHeight}\n`;
+        str += `info creator=UIBuilder\ncommon lineHeight=${lineHeight}\n`; // todo
         for (let key in glyphs) {
             let glyph = glyphs[key];
             let { x, y, width, height, advance, page, bx, by, channel } = glyph;
@@ -2187,7 +2203,7 @@ function decodeGObjectBefore(rawData, position) {
 
     let f1;
     data.id = rawData.readS();
-    data.name = rawData.readS();
+    data.name = _.escape(rawData.readS());
     // position 
     data.x = rawData.readInt();
     data.y = rawData.readInt();
@@ -2388,7 +2404,8 @@ function decodeBinary(buffer) {
         nextPos += buffer.pos;
         pi.type = buffer.readByte();
         pi.id = buffer.readS();
-        pi.name = buffer.readS();
+        let name = buffer.readS()
+        pi.name = name ? _.escape(name) : name;
         pi.path = buffer.readS(); //path
         str = buffer.readS();
         if (str)
@@ -2585,8 +2602,6 @@ const parseJSON2XML = (json) => {
         extensionData, children,
         opaque, maskId, reversedMask,
         rootContainer, remark,
-        minWidth, maxWidth,
-        minHeight, maxHeight
     } = json;
     if (!scroll) scroll = {};
     let { flags, scrollBarMargin,
@@ -2598,8 +2613,7 @@ const parseJSON2XML = (json) => {
     let { $ } = component;
     let size = `${width},${height}` != "undefined,undefined" ? `${width},${height}` : null;
     $.size = size;
-    let restrictSize = `${minWidth},${maxWidth},${minHeight},${maxHeight}` != "undefined,undefined,undefined,undefined" ? `${minWidth},${maxWidth},${minHeight},${maxHeight}` : null;
-    $.restrictSize = restrictSize;
+
     let pivot = `${pivotX},${pivotY}` != "undefined,undefined" ? `${pivotX},${pivotY}` : null;
     $.pivot = pivot;
     if (anchor) $.anchor = anchor;
@@ -2609,18 +2623,12 @@ const parseJSON2XML = (json) => {
     if (scrollType != 1) $.scroll = ScrollType[scrollType]; // default 1
     if (flags) $.scrollBarFlags = flags;
     if (scrollBarDisplay) $.scrollBar = ScrollBarDisplayType[scrollBarDisplay];
-    if (scrollBarMargin && !isEmptyObject(scrollBarMargin)) {
+    if (scrollBarMargin && !_.isEmpty(scrollBarMargin)) {
         let { left, right, top, bottom } = scrollBarMargin;
         $.scrollBarMargin = `${top},${bottom},${left},${right}`;
     }
-    if (hzScrollBarRes || vtScrollBarRes) $.scrollBarRes = `${hzScrollBarRes ? hzScrollBarRes : ""},${vtScrollBarRes ? vtScrollBarRes : ""}`;
+    if (hzScrollBarRes || vtScrollBarRes) $.scrollBarRes = `${vtScrollBarRes ? vtScrollBarRes : ""},${hzScrollBarRes ? hzScrollBarRes : ""}`;
     if (headerRes || footerRes) $.ptrRes = `${headerRes ? headerRes : ""},${footerRes ? footerRes : ""}`;
-
-    // relations
-    if (relations && relations.items) {
-        let relation = parseRelation(relations, json);
-        Object.assign(component, { relation });
-    }
 
     if (margin) {
         let { top, bottom, left, right } = margin;
@@ -2638,9 +2646,15 @@ const parseJSON2XML = (json) => {
         let type = ObjectType[objectType];
         $['extention'] = type;
         let extensionProps = parseExtension(type, extensionData);
-        if (!isEmptyObject(extensionProps)) {
+        if (!_.isEmpty(extensionProps)) {
             component[type] = extensionProps;
         }
+    }
+
+    // relations
+    if (relations && relations.items) {
+        let relation = parseRelation(relations, json);
+        Object.assign(component, { relation });
     }
 
     // controllers
@@ -2836,6 +2850,8 @@ function parseDisplayList(parent) {
         let { type, src, content, relations, path, packageItemType, file } = child;
         let objectType = ObjectType[type];
         let { width, height,
+            minWidth, maxWidth,
+            minHeight, maxHeight,
             scaleX, scaleY,
             skewX, skewY,
             id, name,
@@ -2849,6 +2865,7 @@ function parseDisplayList(parent) {
             blend, filter, filterData,
             tooltips } = content;
         let size = `${width},${height}` != "undefined,undefined" ? `${width},${height}` : null;
+        let restrictSize = `${minWidth},${maxWidth},${minHeight},${maxHeight}` != "undefined,undefined,undefined,undefined" ? `${minWidth},${maxWidth},${minHeight},${maxHeight}` : null;
         let scale = `${scaleX},${scaleY}` != "undefined,undefined" ? `${Math.round(scaleX * 100) / 100},${Math.round(scaleY * 100) / 100}` : null;
         let skew = `${skewX},${skewY}` != "undefined,undefined" ? `${skewX},${skewY}` : null;
         let xy = `${x},${y}`;
@@ -2877,7 +2894,7 @@ function parseDisplayList(parent) {
             group = parent["children"][groupId]['content']['id'];
         }
         let originData = {
-            "$": { id, name, src, fileName, xy, pivot, anchor, size, scale, skew, rotation, blend, filter, filterData, customData, tooltips, alpha, touchable, grayed, group, visible }
+            "$": { id, name, src, fileName, xy, pivot, anchor, size, restrictSize, scale, skew, rotation, blend, filter, filterData, customData, tooltips, alpha, touchable, grayed, group, visible }
         };
         if (objectData) Object.assign(originData["$"], objectData);
 
@@ -3027,7 +3044,7 @@ function parseObject(objectType, content, controllers) {
                         items.forEach((ele, idx) => {
                             let icon = icons ? icons[idx] : null;
                             let value = values ? values[idx] : null;
-                            item.push({ $: { title: ele, value, icon } })
+                            item.push({ $: { title: _.escape(ele), value, icon } })
                         })
                         if (selectionController > -1) selectionController = controllers[selectionController]['name'];
                         if (!visibleItemCount) visibleItemCount = null;
@@ -3041,7 +3058,7 @@ function parseObject(objectType, content, controllers) {
                         }
                         if (items[0] == text) text = null;
                         extensionData[extensionName] = {
-                            "$": { title: text, titleColor, visibleItemCount, direction, selectionController, sound, volume },
+                            "$": { title: text ? _.escape(text) : text, titleColor, visibleItemCount, direction, selectionController, sound, volume },
                             item
                         };
                     }
@@ -3059,7 +3076,7 @@ function parseObject(objectType, content, controllers) {
                     break;
             }
             deleteObjectProps(extensionData[extensionName]["$"])
-            if (isEmptyObject(extensionData[extensionName]["$"])) {
+            if (_.isEmpty(extensionData[extensionName]["$"])) {
                 extensionData = {};
             }
             break;
@@ -3132,7 +3149,7 @@ function parseGear(gears, parent) {
             let value = "-";
             switch (gearName) {
                 case "gearXY":
-                    if (!isEmptyObject(item)) {
+                    if (!_.isEmpty(item)) {
                         let { x, y } = item;
                         value = `${x},${y}`;
                         if (positionsInPercent) {
@@ -3140,7 +3157,7 @@ function parseGear(gears, parent) {
                             value += `,${px},${py}`;
                         }
                     }
-                    if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
+                    if (defaultValues && !_.isEmpty(defaultValues) && !defaultStr) {
                         let { x, y } = defaultValues;
                         defaultStr = `${x},${y}`;
                         if (positionsInPercent) {
@@ -3150,69 +3167,69 @@ function parseGear(gears, parent) {
                     }
                     break;
                 case "gearSize":
-                    if (!isEmptyObject(item)) {
+                    if (!_.isEmpty(item)) {
                         let { width, height, scaleX, scaleY } = item;
                         value = `${width},${height},${scaleX},${scaleY}`;
                     }
-                    if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
+                    if (defaultValues && !_.isEmpty(defaultValues) && !defaultStr) {
                         let { width, height, scaleX, scaleY } = defaultValues;
                         defaultStr = `${width},${height},${scaleX},${scaleY}`;
                     }
                     break;
                 case "gearLook":
-                    if (!isEmptyObject(item)) {
+                    if (!_.isEmpty(item)) {
                         let { alpha, rotation, grayed, touchable } = item;
                         value = `${alpha.toFixed(2)},${rotation},${+grayed},${+touchable}`;
                     }
-                    if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
+                    if (defaultValues && !_.isEmpty(defaultValues) && !defaultStr) {
                         let { alpha, rotation, grayed, touchable } = defaultValues;
                         defaultStr = `${alpha},${rotation},${+grayed},${+touchable}`;
                     }
                     break;
                 case "gearColor":
-                    if (!isEmptyObject(item)) {
+                    if (!_.isEmpty(item)) {
                         let { color, strokeColor } = item;
                         // console.log(content); // todo compare object color & default
                         if (strokeColor == "rgb(0,0,0)") strokeColor = null; // version 3.0
                         value = `${rgbaToHex(color, false)},${rgbaToHex(strokeColor, false)}`;
                     }
-                    if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
+                    if (defaultValues && !_.isEmpty(defaultValues) && !defaultStr) {
                         let { color, strokeColor } = defaultValues;
                         if (strokeColor == "rgb(0,0,0)") strokeColor = null; // version  3.0
                         defaultStr = `${rgbaToHex(color, false)},${rgbaToHex(strokeColor, false)}`;
                     }
                     break;
                 case "gearAni":
-                    if (!isEmptyObject(item)) {
+                    if (!_.isEmpty(item)) {
                         let { frame, playing } = item;
                         value = `${frame},${playing ? "p" : "s"}`;
                     }
-                    if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
+                    if (defaultValues && !_.isEmpty(defaultValues) && !defaultStr) {
                         let { frame, playing } = defaultValues;
                         defaultStr = `${frame},${playing ? "p" : "s"}`;
                     }
                     break;
                 case "gearFontSize":
-                    if (!isEmptyObject(item)) {
+                    if (!_.isEmpty(item)) {
                         value = `${item.default}`;
                     }
-                    if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
+                    if (defaultValues && !_.isEmpty(defaultValues) && !defaultStr) {
                         defaultStr = `${defaultValues.default}`;
                     }
                     break;
                 case "gearIcon":
-                    if (!isEmptyObject(item)) {
+                    if (!_.isEmpty(item)) {
                         value = `${item.default}`;
                     }
-                    if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
+                    if (defaultValues && !_.isEmpty(defaultValues) && !defaultStr) {
                         defaultStr = `${defaultValues.default}`;
                     }
                     break;
                 case "gearText":
-                    if (!isEmptyObject(item)) {
+                    if (!_.isEmpty(item)) {
                         value = `${item.default}`;
                     }
-                    if (defaultValues && !isEmptyObject(defaultValues) && !defaultStr) {
+                    if (defaultValues && !_.isEmpty(defaultValues) && !defaultStr) {
                         defaultStr = `${defaultValues.default}`;
                     }
                     break;
@@ -3369,12 +3386,12 @@ function parseList(content) {
     if (scrollType != 1) objectData.scroll = ScrollType[scrollType]; // default 1
     if (flags) objectData.scrollBarFlags = flags;
     if (scrollBarDisplay) objectData.scrollBar = ScrollBarDisplayType[scrollBarDisplay];
-    if (scrollBarMargin && !isEmptyObject(scrollBarMargin)) {
+    if (scrollBarMargin && !_.isEmpty(scrollBarMargin)) {
         let { left, right, top, bottom } = scrollBarMargin;
         objectData.scrollBarMargin = `${top},${bottom},${left},${right}`;
     }
-    
-    if (hzScrollBarRes || vtScrollBarRes) objectData.scrollBarRes = `${hzScrollBarRes ? hzScrollBarRes : ""},${vtScrollBarRes ? vtScrollBarRes : ""}`;
+
+    if (hzScrollBarRes || vtScrollBarRes) objectData.scrollBarRes = `${vtScrollBarRes ? vtScrollBarRes : ""},${hzScrollBarRes ? hzScrollBarRes : ""}`;
     if (headerRes || footerRes) objectData.ptrRes = `${headerRes ? headerRes : ""},${footerRes ? footerRes : ""}`;
     if (margin) {
         let { top, bottom, left, right } = margin;
@@ -3395,7 +3412,7 @@ function parseList(content) {
     objectData.vAlign = vAlign == "top" ? null : vAlign;
     if (childrenRenderOrder) objectData.renderOrder = ChildrenRenderOrder[childrenRenderOrder];
     if (apexIndex) objectData.apexIndex = apexIndex;
-    if (autoResizeItem) objectData.autoItemSize = autoResizeItem;
+    objectData.autoItemSize = autoResizeItem;
     if (!scrollItemToViewOnClick) objectData.scrollItemToViewOnClick = scrollItemToViewOnClick;
     if (foldInvisibleItems) objectData.foldInvisibleItems = foldInvisibleItems;
     if (selectionController) objectData.selectionController = controllers[selectionController]['name'];
@@ -3422,12 +3439,12 @@ function parseText(content) {
     if (letterSpacing) objectData.letterSpacing = letterSpacing;
     objectData.align = align == "left" ? null : align;
     objectData.vAlign = verticalAlign == "top" ? null : verticalAlign;
+    if (autoSize != 1) objectData.autoSize = AutoSizeType[autoSize]; // default:1
     if (underline) objectData.underline = underline;
     if (bold) objectData.bold = bold;
     if (italic) objectData.italic = italic;
     if (ubb) objectData.ubb = ubb;
     if (template) objectData.template = template;
-    if (autoSize != 1) objectData.autoSize = AutoSizeType[autoSize]; // default:1
     objectData.strokeColor = outlineColor;
     if (singleLine) objectData.singleLine = singleLine;
     if (parseFloat(outline).toString() != "NaN" && outline != 2) {
@@ -3438,7 +3455,7 @@ function parseText(content) {
     }
     if (strikethrough) objectData.strikethrough = strikethrough;
     objectData.shadowColor = shadowColor;
-    let shadowOffset = `${shadowOffsetX},${shadowOffsetY}` != "undefined,undefined"?`${shadowOffsetX},${shadowOffsetY}`:null;
+    let shadowOffset = `${shadowOffsetX},${shadowOffsetY}` != "undefined,undefined" ? `${shadowOffsetX},${shadowOffsetY}` : null;
     objectData.shadowOffset = shadowOffset;
     objectData.text = text || "";
     return objectData;
@@ -3458,13 +3475,14 @@ const handleSprites = async (spritesMap, flag = true) => {
         if (!name) { // atlas temp
             name = key;
             path = temp;
-            flag = true;
+            // flag = true;
         }
         let output = path ? `${outputPath}${importFileName}${path}${name}` : `${outputPath}${importFileName}/${name}`;
-        output = flag ? `${output}.png` : output;
-
+        // output = flag ? `${output}.png` : output;
+        if (output.indexOf(".png") == -1) output += ".png";
+        let imageName = exists(`${inputPath}${pkgName}@${atlas}.png`) ? `${inputPath}${pkgName}@${atlas}.png` : `${inputPath}${pkgName}_${atlas}.png`;
         await new Promise((resolve, reject) => {
-            Jimp.read(`${inputPath}${pkgName}@${atlas}.png`)
+            Jimp.read(imageName)
                 .then(image => {
                     // Do stuff with the image.
                     let { x, y, width, height } = rect;
@@ -3474,8 +3492,11 @@ const handleSprites = async (spritesMap, flag = true) => {
                     if (rotated) {
                         bitmap.rotate(90);
                     }
-                    bitmap.write(output);
-                    resolve();
+                    bitmap.writeAsync(output).then(() => {
+                        resolve();
+                    }).catch((err) => {
+                        reject(err)
+                    });
                 })
                 .catch(err => {
                     // Handle an exception.
@@ -3494,12 +3515,16 @@ const handleSound = async (soundInfo, flag = true) => {
         let { file, path, name } = sound;
         let extName = file.split('.').pop();
         let output = path ? `${outputPath}${importFileName}${path}` : `${outputPath}${importFileName}/`;
-        file = flag ? `${inputPath}${pkgName}@${file}` : `${inputPath}${file}`;
+        file = `${inputPath}${file}`;
         if (exists(file)) {
             if (!exists(output)) {
                 fs.mkdirSync(resolve(output));
             }
-            output = `${output}${name}.${extName}`;
+            if (flag) {
+                output = `${output}${name}.${extName}`;
+            } else {
+                output = `${output}${name}`;
+            }
             fs.copyFileSync(file, output);
         } else {
             console.warn(`FILE: ${file} NOT FOUND!`);
@@ -3512,11 +3537,11 @@ const handleAltas = (atlasInfo) => {
     // todo check atlas size
     if (!atlasInfo.every((item) => {
         let file = item['$']['file'];
-        let name = `${inputPath}${pkgName}@${file}`;
-        if (exists(name)) {
+        let names = [`${inputPath}${pkgName}@${file}`, `${inputPath}${pkgName}_${file}`];
+        if (names.some((name) => exists(name))) {
             return true;
         } else {
-            console.warn(`FILE: ${name} NOT FOUND!`);
+            console.warn(`FILE: ${inputPath}${pkgName}@${file} or ${inputPath}${pkgName}_${file} NOT FOUND!`);
             return false;
         }
     })) {
@@ -3524,13 +3549,13 @@ const handleAltas = (atlasInfo) => {
     }
 }
 
-const handleMovieclip = async (movieclipInfo) => {
+const handleMovieclip = async (movieclipInfo, ext = true) => {
     console.log("start handleMovieclip");
     for (let key in movieclipInfo) {
         let movieclip = movieclipInfo[key];
         let { path, name } = movieclip;
-        let output = path ? `${outputPath}${importFileName}${path}${name}.jta` : `${outputPath}${importFileName}/${name}.jta`;
-
+        let output = path ? `${outputPath}${importFileName}${path}${name}` : `${outputPath}${importFileName}/${name}`;
+        if (ext) output += ".jta";
         await createMovieClip(movieclip, tempPath, output);
     }
     console.log("finish handleMovieclip");
@@ -3545,13 +3570,15 @@ const createFileByData = (data, ext) => {
         if (!exists(output)) {
             fs.mkdirSync(resolve(output));
         }
-        output = `${output}${name}${ext}`;
+        output = `${output}${_.unescape(name)}${ext}`;
         fs.writeFileSync(output, content)
     }
     console.log("finish createFileByData");
 }
 
-start(`${inputPath}${importFileName}.bin`);
+
+
+exports.restore = restore
 
 
 

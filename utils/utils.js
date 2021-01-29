@@ -1,11 +1,5 @@
 const fs = require('fs');
 const { parseStringPromise, Builder } = require('xml2js');
-const uuidv4 = () => {
-    return 'xxxxxxxxxxxx4xxxyxxxxxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-        let r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-    });
-}
 
 const ascii2Str = (num) => {
     return String.fromCharCode(num);
@@ -72,9 +66,6 @@ const rgbaToHex = (str, alpha = true) => {
     return `#${color.join("")}`;
 }
 
-const isEmptyObject = (object) => {
-    return Object.keys(object).length === 0
-}
 
 const deleteObjectProps = (object) =>{
     for(let key in object){
@@ -109,11 +100,9 @@ const changeTwoDecimal = (x) => {
 module.exports.xml2json = xml2json;
 module.exports.json2xml = json2xml;
 module.exports.exists = exists;
-module.exports.uuidv4 = uuidv4;
 module.exports.ascii2Str = ascii2Str;
 module.exports.getItemById = getItemById;
 module.exports.rgbaToHex = rgbaToHex;
-module.exports.isEmptyObject = isEmptyObject;
 module.exports.changeTwoDecimal = changeTwoDecimal;
 module.exports.getObjectById = getObjectById;
 module.exports.deleteObjectProps = deleteObjectProps;

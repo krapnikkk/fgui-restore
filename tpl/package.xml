@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<packageDescription id="{{id}}">
-  <resources>
-  {{resources}}
-  </resources>
-  <publish name="{{public}}">
-    <atlas name="Default" index="0"/>
-  </publish>
-</packageDescription>

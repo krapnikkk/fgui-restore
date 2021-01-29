@@ -1,5 +1,5 @@
 {
-  "name": "fgui-cli",
+  "name": "fgui-restore",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
@@ -7,17 +7,24 @@
   },
   "keywords": [
     "fairygui",
+    "fgui",
     "restore",
-    "viewer",
-    "cli"
+    "fui"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/krapnikkk/padlocal-http.git"
+  },
+  "bugs": {
+    "url": "https://github.com/krapnikkk/padlocal-http/issues"
+  },
   "author": "krapnik",
-  "license": "ISC",
+  "license": "MIT",
   "description": "a cli for fairygui",
   "dependencies": {
-    "byte": "^2.0.0",
     "bytebuffer": "^5.0.1",
     "jimp": "^0.16.1",
+    "lodash": "^4.17.20",
     "xml2js": "^0.4.23"
   }
 }
