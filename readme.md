@@ -1,6 +1,6 @@
 ## 写在前面
 
-<font size=4>本工程仅作学习研究使用，本意用于工程项目不幸破损，通过发布出来的资源文件进行紧急还原，请勿用于资源破解侵权等行为，否则后果自负！！</font>
+<font size=5>本工程仅作学习研究使用，本意用于工程项目不幸破损，通过发布出来的资源文件进行紧急还原，请勿用于资源破解侵权等行为，否则后果自负！！</font>
 
 ## 下载
 
@@ -14,12 +14,17 @@ git clone git@github.com:krapnikkk/fgui-restore.git
 npm install
 ```
 ## 使用方法
+```
+node restore inputFile outputFile
+```
+
+## 参考
 
 ```
 node restore ./test/MainMenu.bin ./output 
 ```
 
-## 支持版本
+## 支持版本 && 还原说明
 
 数据版本 [向下兼容] : buffer.version： 5
 
@@ -50,7 +55,7 @@ node restore ./test/MainMenu.bin ./output
  - .fnt
  - .jta
 
-## xml解析流程
+### xml解析流程
  - 解析发布出来的资源文件
  - 根据文件格式版本分布解析二进制和压缩描述文件
  - 将发布的资源文件解析还原为xml
@@ -58,7 +63,7 @@ node restore ./test/MainMenu.bin ./output
  - 【movieclip】packageDescription.resources[0].movieclip
  - 【sound】packageDescription.resources[0].sound
 
-## 文件解析流程
+### 文件解析流程
  - createObject 【UIPackage】
  - constructFromResource【 GComponent | GImage | GMovieClip 】
  - controller.setup【controller】
@@ -70,17 +75,17 @@ node restore ./test/MainMenu.bin ./output
  - constructExtension 【extension】
 
 ## todo list [maybe]
- [x] 【组件】组件自定义属性还原
- [x] 【组件】组件出入场音效还原
- [x] 【组件】属性控制中对原始属性的判断进行还原
- [x] 【标签】标签中的标题为输入文本相关属性还原
- [x] branch分支相关逻辑处理
- [x] fnt文件初始化完善
- [x] 校验需要还原文件的合法性&合理性及异常处理
- [x] 浮点数数值精准还原
- [x] 属性默认值及属性顺序精准还原
- [x] BMFont字体文件还原
- [x] and more
+- [ ] 【组件】组件自定义属性还原
+- [ ] 【组件】组件出入场音效还原
+- [ ] 【组件】属性控制中对原始属性的判断进行还原
+- [ ] 【标签】标签中的标题为输入文本相关属性还原
+- [ ] branch分支相关逻辑处理
+- [ ] fnt文件初始化完善
+- [ ] 校验需要还原文件的合法性&合理性及异常处理
+- [ ] 浮点数数值精准还原
+- [ ] 属性默认值及属性顺序精准还原
+- [ ] BMFont字体文件还原
+- [ ] and more
 
 ### License ###
 MIT
