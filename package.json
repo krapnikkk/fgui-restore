@@ -1,6 +1,6 @@
 {
   "name": "fgui-restore",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -20,7 +20,7 @@
   },
   "author": "krapnik",
   "license": "MIT",
-  "description": "a cli for fairygui",
+  "description": "A tool for fairygui publish file to restore fairygui package.",
   "dependencies": {
     "bytebuffer": "^5.0.1",
     "jimp": "^0.16.1",
