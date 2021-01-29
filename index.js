@@ -11,7 +11,7 @@ process.on("uncaughtException", function (err) {
 });
 
 const XMLHeader = '<?xml version="1.0" encoding="utf-8"?>\n';
-let importFileName = "Basics",
+let importFileName = "Chat",
     inputPath = "./test/",
     outputPath = './output/',
     temp = '/temp/',
@@ -474,7 +474,7 @@ const createByPackageXML = async (pkgData) => {
     deleteTemp(tempPath);
 }
 
-const handlePackageDataBin = (pkgData) => {
+const handlePackageDataBin = (pkgData,name) => {
     let data = pkgData['package.xml'];
     let sprites = pkgData['sprites.bytes'];
     let pkgXmlData = {
@@ -491,7 +491,7 @@ const handlePackageDataBin = (pkgData) => {
                 "atlas": []
             },
             "publish": {
-                "$": { pkgName },
+                "$": { name },
                 "atlas": {
                     "$": { name: "Default", index: 0 }
                 }
@@ -570,7 +570,7 @@ const handlePackageDataBin = (pkgData) => {
 }
 
 const handlePackageFileBin = async (data) => {
-    let str = handlePackageDataBin(data);
+    let str = handlePackageDataBin(data,pkgName);
     let output = `${outputPath}${importFileName}`;
     if (!exists(output)) {
         fs.mkdirSync(resolve(output));
@@ -582,7 +582,7 @@ const parseBufferBin = async (ba) => {
     let data;
     ba.version = ba.readInt();
     let compressed = ba.readBool();
-    if (compressed) { // compressed
+    if (compressed) { // compressed todo
         // let buf = new Uint8Array(ba.buffer, ba.position, ba.length - ba.position);
         // let inflater = new Zlib.inflateRawSync(buf);
         // let buffer2 = new ByteBuffer(inflater.decompress());
@@ -606,7 +606,7 @@ const createByPackageBin = async (pkgData) => {
     let atlasInfo = packageData["packageDescription"]['resources']['atlas'];
     if (atlasInfo) {
         if (!Array.isArray(atlasInfo)) atlasInfo = [atlasInfo];
-        // handleAltas(atlasInfo);
+        handleAltas(atlasInfo);
     }
 
     // parse sprites.bytes
@@ -619,13 +619,13 @@ const createByPackageBin = async (pkgData) => {
             let key = image['id'];
             Object.assign(spritesMap[key], image);
         })
-        // await handleSprites(spritesMap, false);
+        await handleSprites(spritesMap, false);
     }
 
     let soundInfo = packageData["packageDescription"]['resources']['sound'];
     if (soundInfo) {
         if (!Array.isArray(soundInfo)) soundInfo = [soundInfo];
-        // handleSound(soundInfo, false);
+        handleSound(soundInfo, false);
     }
 
     let fontInfo = packageData["packageDescription"]['resources']['font'];
@@ -638,7 +638,7 @@ const createByPackageBin = async (pkgData) => {
             font['content'] = decodeFontData(font['id'], sprites, files);
             fontMap[file] = font;
         })
-        // createFileByData(fontMap, '');
+        createFileByData(fontMap, '');
     }
 
     let movieclipInfo = packageData["packageDescription"]['resources']['movieclip'];
@@ -651,7 +651,7 @@ const createByPackageBin = async (pkgData) => {
             movieclip['content'] = decodeMovieclipData(id, sprites, files);
             movieclipMap[id] = movieclip;
         })
-        // await handleMovieclip(movieclipMap);
+        await handleMovieclip(movieclipMap);
     }
 
     let componentInfo = packageData["packageDescription"]['resources']['component'];
@@ -1162,7 +1162,7 @@ function decodeGroupBefore(rawData, position) {
     data.advanced = true;
     data.layout = rawData.readByte();
     data.lineGap = rawData.readInt();
-    data.columnGap = rawData.readInt();
+    data.colGap = rawData.readInt();
     if (rawData.version >= 2) {
         data.excludeInvisibles = rawData.readBool();
         data.autoSizeDisabled = rawData.readBool();
@@ -1183,7 +1183,7 @@ function decodeListBefore(rawData, position, treeView = false) {
     i1 = rawData.readByte();
     data.vAlign = i1 == 0 ? "top" : (i1 == 1 ? "middle" : "bottom");
     data.lineGap = rawData.readShort();
-    data.columnGap = rawData.readShort();
+    data.colGap = rawData.readShort();
     data.lineCount = rawData.readShort();
     data.columnCount = rawData.readShort();
     data.autoResizeItem = rawData.readBool();
@@ -1251,7 +1251,6 @@ function readItems(buffer, list, treeView) {
             isFolder = buffer.readBool();
             level = buffer.readByte();
         }
-        // debugger;
         let id = str.replace(`ui://${pkgId}`, '');
         // let pkg = UIPackage[id];
         let obj = { id, buffer };
@@ -1292,7 +1291,7 @@ function setupItem(buffer, id) {
     let cnt;
     let i;
 
-    if (pkg.objectType == 9) { // GComponent 
+    if (pkg.objectType == 9) { // GComponent todo
         debugger;
         cnt = buffer.readShort();
         for (i = 0; i < cnt; i++) {
@@ -3106,11 +3105,11 @@ function parseObject(objectType, content, controllers) {
             });
             break;
         case "Group":
-            let { advanced, layout, lineGap, columnGap, excludeInvisibles, autoSizeDisabled, mainGridIndex } = content;
+            let { advanced, layout, lineGap, colGap, excludeInvisibles, autoSizeDisabled, mainGridIndex } = content;
             objectData.advanced = advanced;
             if (layout) objectData.layout = layout;
             if (lineGap) objectData.lineGap = lineGap;
-            if (columnGap) objectData.columnGap = columnGap;
+            if (colGap) objectData.colGap = colGap;
             if (excludeInvisibles) objectData.excludeInvisibles = excludeInvisibles;
             if (autoSizeDisabled) objectData.autoSizeDisabled = autoSizeDisabled;
             if (mainGridIndex > -1) objectData.mainGridIndex = mainGridIndex;
@@ -3354,7 +3353,7 @@ function parseList(content) {
         selectionMode, margin,
         autoResizeItem, scrollItemToViewOnClick,
         foldInvisibleItems, layout,
-        lineGap, columnGap,
+        lineGap, colGap,
         lineCount, columnCount,
         selectionController, clipSoftness } = content;
     if (!scroll) scroll = {};
@@ -3374,10 +3373,7 @@ function parseList(content) {
         let { left, right, top, bottom } = scrollBarMargin;
         objectData.scrollBarMargin = `${top},${bottom},${left},${right}`;
     }
-    if (lineGap) objectData.lineGap = lineGap;
-    if (columnGap) objectData.columnGap = columnGap;
-    if (lineCount) objectData.lineCount = lineCount;
-    if (columnCount) objectData.columnCount = columnCount;
+    
     if (hzScrollBarRes || vtScrollBarRes) objectData.scrollBarRes = `${hzScrollBarRes ? hzScrollBarRes : ""},${vtScrollBarRes ? vtScrollBarRes : ""}`;
     if (headerRes || footerRes) objectData.ptrRes = `${headerRes ? headerRes : ""},${footerRes ? footerRes : ""}`;
     if (margin) {
@@ -3390,12 +3386,16 @@ function parseList(content) {
         let clipSoftnessStr = `${x},${y}` != "0,0" ? `${x},${y}` : null;
         objectData.clipSoftness = clipSoftnessStr;
     }
+    if (lineGap) objectData.lineGap = lineGap;
+    if (colGap) objectData.colGap = colGap;
+    if (lineCount) objectData.lineCount = lineCount;
+    if (columnCount) objectData.columnCount = columnCount;
     objectData.defaultItem = defaultItem;
     objectData.align = align == "left" ? null : align;
     objectData.vAlign = vAlign == "top" ? null : vAlign;
     if (childrenRenderOrder) objectData.renderOrder = ChildrenRenderOrder[childrenRenderOrder];
     if (apexIndex) objectData.apexIndex = apexIndex;
-    if (!autoResizeItem) objectData.autoItemSize = autoResizeItem;
+    if (autoResizeItem) objectData.autoItemSize = autoResizeItem;
     if (!scrollItemToViewOnClick) objectData.scrollItemToViewOnClick = scrollItemToViewOnClick;
     if (foldInvisibleItems) objectData.foldInvisibleItems = foldInvisibleItems;
     if (selectionController) objectData.selectionController = controllers[selectionController]['name'];
