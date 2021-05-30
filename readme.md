@@ -26,6 +26,8 @@ node restore ./test/MainMenu.bin ./output
 
 ## 支持版本 && 还原说明
 
+nodejs版本：12
+
 数据版本 [向下兼容] : buffer.version： 5
 
 编辑器版本：[FairyGUI Editor: 2020.3.3](https://fairygui.com/product.html)
@@ -75,7 +77,7 @@ node restore ./test/MainMenu.bin ./output
  - constructExtension 【extension】
 
 ## todo list [maybe]
-- [ ] 【组件】组件自定义属性还原
+- [x] 【组件】组件自定义属性还原
 - [ ] 【组件】组件出入场音效还原
 - [ ] 【组件】属性控制中对原始属性的判断进行还原
 - [ ] 【标签】标签中的标题为输入文本相关属性还原
