@@ -15,7 +15,7 @@ npm install
 ```
 ## 使用方法
 ```
-node restore inputFile outputFile
+node restore [inputFile] [outputPath]
 ```
 
 ## 参考
@@ -88,6 +88,9 @@ nodejs版本：12
 - [ ] 属性默认值及属性顺序精准还原
 - [ ] BMFont字体文件还原
 - [ ] and more
+
+## changelog
+- 修复纹理集旋转后，还原图片文件的宽高及旋转角度异常问题
 
 ### License ###
 MIT

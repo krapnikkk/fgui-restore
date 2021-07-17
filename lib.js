@@ -3471,6 +3471,7 @@ const handleSprites = async (spritesMap, flag = true) => {
     console.log("start crop image");
     for (key in spritesMap) {
         let item = spritesMap[key];
+        console.log(item);
         let { name, path, atlas, rect, rotated } = item;
         if (!name) { // atlas temp
             name = key;
@@ -3486,11 +3487,11 @@ const handleSprites = async (spritesMap, flag = true) => {
                 .then(image => {
                     // Do stuff with the image.
                     let { x, y, width, height } = rect;
-                    width = rotated ? rect.height : width;
-                    height = rotated ? rect.width : height;
+                    // width = rotated ? rect.height : width;
+                    // height = rotated ? rect.width : height;
                     let bitmap = image.crop(x, y, width, height);
                     if (rotated) {
-                        bitmap.rotate(90);
+                        bitmap.rotate(-90);
                     }
                     bitmap.writeAsync(output).then(() => {
                         resolve();
