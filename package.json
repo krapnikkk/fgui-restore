@@ -26,5 +26,8 @@
     "jimp": "^0.16.1",
     "lodash": "^4.17.20",
     "xml2js": "^0.4.23"
+  },
+  "devDependencies": {
+    "@types/bytebuffer": "^5.0.42"
   }
 }
