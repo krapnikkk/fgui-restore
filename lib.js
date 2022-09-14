@@ -1790,8 +1790,8 @@ function addStatus(type, buffer) {
             data.default = buffer.readInt();
             break;
         case "gearColor":
-            data.color = buffer.readColorS();
-            data.strokeColor = buffer.readColorS();
+            data.color = buffer.readColor();
+            data.strokeColor = buffer.readColor();
             break;
         case "gearText":
             data.default = buffer.readS();
