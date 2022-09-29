@@ -861,7 +861,7 @@ async function loadQuotePackage(files) {
             quotePackageMap[file] = pkgData['package.xml'];
 
         } else { // xml
-            // debugger;
+            debugger;
             // todo
             // pkgData = await parseBufferXML(buf);
             // await handlePackageFileXML(pkgData);
@@ -2251,8 +2251,7 @@ function setupController(buffer) {
             nextPos += buffer.pos;
             let type = buffer.readByte();
             let action = {};
-            // let count = buffer.readShort();
-            let count = buffer.readShortlittleEndian(false);
+            let count = buffer.readShort();
             action.fromPage = [];
             for (j = 0; j < count; j++)
                 action.fromPage[j] = buffer.readS();
