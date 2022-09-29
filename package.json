@@ -22,6 +22,7 @@
   "license": "MIT",
   "description": "A tool for fairygui publish file to restore fairygui package.",
   "dependencies": {
+    "fs-extra": "^3.0.1",
     "bytebuffer": "^5.0.1",
     "jimp": "^0.16.1",
     "lodash": "^4.17.20",
