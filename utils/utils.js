@@ -1,5 +1,7 @@
 const fs = require('fs');
 const { parseStringPromise, Builder } = require('xml2js');
+var path = require("path"); 
+const fs_extra = require('fs-extra');
 
 const ascii2Str = (num) => {
     return String.fromCharCode(num);
@@ -95,7 +97,16 @@ const changeTwoDecimal = (x) => {
     return s_x;
 }
 
-
+function mkdirs(dirname) {  
+    bo = exists(dirname);  
+    if (bo) {  
+        return;
+    } else {  
+        mkdirs(path.dirname(dirname));
+        fs_extra.mkdirSync(dirname); 
+        console.log("mkdir : " + dirname);
+    }  
+}
 
 module.exports.xml2json = xml2json;
 module.exports.json2xml = json2xml;
@@ -106,3 +117,4 @@ module.exports.rgbaToHex = rgbaToHex;
 module.exports.changeTwoDecimal = changeTwoDecimal;
 module.exports.getObjectById = getObjectById;
 module.exports.deleteObjectProps = deleteObjectProps;
+module.exports.mkdirs = mkdirs;

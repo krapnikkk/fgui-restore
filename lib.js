@@ -3,7 +3,7 @@ const zlib = require("zlib");
 const Jimp = require('jimp');
 const ByteArray = require('./ByteArray');
 const { resolve, dirname, basename } = require('path');
-const { exists, xml2json, json2xml, getItemById, getObjectById, rgbaToHex, deleteObjectProps } = require('./utils/utils');
+const { exists, xml2json, json2xml, getItemById, getObjectById, rgbaToHex, deleteObjectProps,mkdirs } = require('./utils/utils');
 const { createMovieClip } = require('./build/create');
 const _ = require('lodash');
 const path = require('path');
@@ -259,7 +259,7 @@ const restore = async (path, output) => {
     tempPath = `${outputPath}${importFileName}${temp}`;
     if (output) outputPath = resolve(output) + "/";
     if (!exists(output)) {
-        fs.mkdirSync(resolve(output));
+        mkdirs(resolve(output));
     }
     let buf = fs.readFileSync(`${path}`); // Buffer 
     let arrayBuffer = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);;
@@ -408,7 +408,7 @@ const handlePackageFileXML = async (data) => {
 
     let output = `${outputPath}${importFileName}`;
     if (!exists(output)) {
-        fs.mkdirSync(resolve(output));
+        mkdirs(resolve(output));
     }
     fs.writeFileSync(`${output}/package.xml`, packageXml);
 }
@@ -589,7 +589,7 @@ const handlePackageFileBin = async (data) => {
     let str = handlePackageDataBin(data, pkgName);
     let output = `${outputPath}${importFileName}`;
     if (!exists(output)) {
-        fs.mkdirSync(resolve(output));
+        mkdirs(resolve(output));
     }
     fs.writeFileSync(`${output}/package.xml`, str);
 }
@@ -2195,6 +2195,7 @@ function setupController(buffer) {
         "pageNames": [],
         "selected": []
     };
+
     let beginPos = buffer.pos;
     buffer.seek(beginPos, 0);
 
@@ -2238,6 +2239,8 @@ function setupController(buffer) {
 
     buffer.seek(beginPos, 2);
 
+    
+
     cnt = buffer.readShort();
     if (cnt > 0) {
         if (!controller.actions)
@@ -2250,13 +2253,13 @@ function setupController(buffer) {
             let action = {};
             let count = buffer.readShort();
             action.fromPage = [];
-            for (i = 0; i < count; i++)
-                action.fromPage[i] = buffer.readS();
+            for (j = 0; j < count; j++)
+                action.fromPage[j] = buffer.readS();
 
             count = buffer.readShort();
             action.toPage = [];
-            for (i = 0; i < count; i++)
-                action.toPage[i] = buffer.readS();
+            for (j = 0; j < count; j++)
+                action.toPage[j] = buffer.readS();
             if (type == 0) { // PlayTransitionAction
                 action.transitionName = buffer.readS();
                 action.playTimes = buffer.readInt();
@@ -3650,7 +3653,7 @@ const handleSound = async (soundInfo, flag = true) => {
         file = `${inputPath}${file}`;
         if (exists(file)) {
             if (!exists(output)) {
-                fs.mkdirSync(resolve(output));
+                mkdirs(resolve(output));
             }
             if (flag) {
                 output = `${output}${name}.${extName}`;
@@ -3700,7 +3703,7 @@ const createFileByData = (data, ext) => {
         let { path, content, name } = item;
         let output = path ? `${outputPath}${importFileName}${path}` : `${outputPath}${importFileName}/`;
         if (!exists(output)) {
-            fs.mkdirSync(resolve(output));
+            mkdirs(resolve(output));
         }
         output = `${output}${_.unescape(name)}${ext}`;
         fs.writeFileSync(output, content)
