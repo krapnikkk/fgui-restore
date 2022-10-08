@@ -51,6 +51,10 @@ const rgbaToHex = (str, alpha = true) => {
         return "";
     }
     const colorArr = str.match(/(0\.)?\d+/g);
+    if(!colorArr){
+        console.warn(str);
+        return
+    }
     const color = colorArr.map((ele, index, array) => {
         if (index === array.length - 1 && alpha) {
             let opacity = (ele * 100 * 255) / 100;

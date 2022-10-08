@@ -3602,7 +3602,6 @@ const handleSprites = async (spritesMap, flag = true, resFiles) => {
     console.log("start crop image");
     for (key in spritesMap) {
         let item = spritesMap[key];
-        // console.log(item);
         let { name, path, atlas, rect, rotated } = item;
         if (!name) { // atlas temp
             name = key;
@@ -3612,6 +3611,7 @@ const handleSprites = async (spritesMap, flag = true, resFiles) => {
         let output = path ? `${outputPath}${importFileName}${path}${name}` : `${outputPath}${importFileName}/${name}`;
         // output = flag ? `${output}.png` : output;
         if (output.indexOf(".png") == -1) output += ".png";
+        console.log(output);
         let imageName = exists(`${inputPath}${pkgName}@${atlas}.png`) ? `${inputPath}${pkgName}@${atlas}.png` : `${inputPath}${pkgName}_${atlas}.png`;
         if (!exists(imageName)) {
             imageName = `${inputPath}${pkgName}_${resFiles[atlas]['file']}`;
@@ -3689,7 +3689,11 @@ const handleMovieclip = async (movieclipInfo, ext = true) => {
     for (let key in movieclipInfo) {
         let movieclip = movieclipInfo[key];
         let { path, name } = movieclip;
+        let dir = path ? `${outputPath}${importFileName}${path}` : `${outputPath}${importFileName}/`;
         let output = path ? `${outputPath}${importFileName}${path}${name}` : `${outputPath}${importFileName}/${name}`;
+        if (!exists(dir)) {
+            mkdirs(dir);
+        }
         if (ext) output += ".jta";
         await createMovieClip(movieclip, tempPath, output);
     }
