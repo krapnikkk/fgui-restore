@@ -262,7 +262,7 @@ const restore = async (path, output) => {
         mkdirs(resolve(output));
     }
     let buf = fs.readFileSync(`${path}`); // Buffer 
-    let arrayBuffer = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);;
+    let arrayBuffer = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
     let ba = new ByteArray(arrayBuffer), pkgData;
     let formatFlag = ba.readUint(); // 1179080009
     if (formatFlag == 0x46475549) { // binary 
@@ -594,23 +594,20 @@ const handlePackageFileBin = async (data) => {
     fs.writeFileSync(`${output}/package.xml`, str);
 }
 
-const parseBufferBin = async (ba,isQuotePackage) => {
-    let data;
+const parseBufferBin = async (ba,isQuotePackage = false) => {
     ba.version = ba.readInt();
     let compressed = ba.readBool();
-    if (compressed) { // compressed todo
-        // let buf = new Uint8Array(ba.buffer, ba.position, ba.length - ba.position);
-        // let inflater = new Zlib.inflateRawSync(buf);
-        // let buffer2 = new ByteBuffer(inflater.decompress());
-        // buffer2.version = buffer.version;
-        // buffer = buffer2;
-    } else { // Uncompressed
-        pkgId = ba.readString();
-        pkgName = ba.readString();
-        ba.skip(20);
-        data = decodeBinary(ba,isQuotePackage);
+    pkgId = ba.readString();
+    pkgName = ba.readString();
+    ba.skip(20);
+    if (compressed) { // compressed
+        let buf = new Uint8Array(ba._buffer, ba._pos, ba._length - ba._pos);
+        let inflater = zlib.inflateRawSync(buf);
+        let ba2 = new ByteArray(inflater.buffer);
+        ba2.version = ba.version;
+        ba = ba2;
     }
-    return data;
+    return decodeBinary(ba,isQuotePackage);
 }
 
 const createByPackageBin = async (pkgData) => {
@@ -3723,7 +3720,7 @@ function encodeHTML(str){
             .replace(/>/g, "&gt;").replace(/'/g, "&apos;").replace(/"/g, "&quot;");
 }
 
-// restore(`./ori/exerciseRoomPkg.fui`, "./ori/output/"); // test
+// restore(`./index/GainitemView.bin`, "./output/index/"); // test
 
 exports.restore = restore
 
