@@ -256,8 +256,8 @@ const restore = async (path, output) => {
     let tempName = basename(path).split(".");
     packageFileExtension = tempName.pop();
     importFileName = tempName[0];
-    tempPath = `${outputPath}${importFileName}${temp}`;
     if (output) outputPath = resolve(output) + "/";
+    tempPath = `${outputPath}${importFileName}${temp}`;
     if (!exists(output)) {
         mkdirs(resolve(output));
     }
@@ -3720,7 +3720,7 @@ function encodeHTML(str){
             .replace(/>/g, "&gt;").replace(/'/g, "&apos;").replace(/"/g, "&quot;");
 }
 
-// restore(`./index/GainitemView.bin`, "./output/index/"); // test
+// restore(`./test/test.fui`, "./output/test/"); // test
 
 exports.restore = restore
 
