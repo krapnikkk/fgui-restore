@@ -3,7 +3,7 @@ const zlib = require("zlib");
 const Jimp = require('jimp');
 const ByteArray = require('./ByteArray');
 const { resolve, dirname, basename } = require('path');
-const { exists, xml2json, json2xml, getItemById, getObjectById, rgbaToHex, deleteObjectProps,mkdirs } = require('./utils/utils');
+const { exists, xml2json, json2xml, getItemById, getObjectById, rgbaToHex, deleteObjectProps, mkdirs } = require('./utils/utils');
 const { createMovieClip } = require('./build/create');
 const _ = require('lodash');
 const path = require('path');
@@ -372,6 +372,7 @@ const handlePackageDataXML = async (data) => {
     if (images) {
         if (!Array.isArray(images)) images = [images];
         images.forEach((item) => {
+            debugger;
             item['$']['name'] = item['$']['name'] + '.png';
             delete item['$']['size'];
         })
@@ -543,7 +544,9 @@ const handlePackageDataBin = (pkgData, name) => {
                     item['$']['scale'] = 'tile';
                 }
                 if (item['$']['name'].indexOf('.png') == -1) {
-                    item['$']['name'] = item['$']['name'] + '.png';
+
+                    let ext = getFileExt(item['$']['file'])
+                    item['$']['name'] = item['$']['name'] + ext;
                 }
                 images.push(item);
                 break;
@@ -594,7 +597,7 @@ const handlePackageFileBin = async (data) => {
     fs.writeFileSync(`${output}/package.xml`, str);
 }
 
-const parseBufferBin = async (ba,isQuotePackage = false) => {
+const parseBufferBin = async (ba, isQuotePackage = false) => {
     ba.version = ba.readInt();
     let compressed = ba.readBool();
     pkgId = ba.readString();
@@ -607,7 +610,7 @@ const parseBufferBin = async (ba,isQuotePackage = false) => {
         ba2.version = ba.version;
         ba = ba2;
     }
-    return decodeBinary(ba,isQuotePackage);
+    return decodeBinary(ba, isQuotePackage);
 }
 
 const createByPackageBin = async (pkgData) => {
@@ -628,13 +631,20 @@ const createByPackageBin = async (pkgData) => {
         if (!Array.isArray(imageInfo)) imageInfo = [imageInfo];
         let spritesMap = pkgData['sprites.bytes'];
         let resFiles = pkgData["files"];
+        let imageMap = {};
         imageInfo.forEach((item) => {
             let image = item['$'];
-            image.name = image.name.replace(".png", '');
+            image.name = image.name.replace(".png", '').replace(".svg", '');
             let key = image['id'];
-            Object.assign(spritesMap[key], image);
+            let sprites = spritesMap[key];
+            if (sprites) {
+                Object.assign(sprites, image);
+            } else {
+                imageMap[key] = image
+            }
         })
         await handleSprites(spritesMap, false, resFiles);
+        await handleImages(imageMap);
     }
 
     let soundInfo = packageData["packageDescription"]['resources']['sound'];
@@ -853,7 +863,7 @@ async function loadQuotePackage(files) {
         let ba = new ByteArray(arrayBuffer), pkgData;
         let formatFlag = ba.readUint(); // 1179080009
         if (formatFlag == 0x46475549) { // binary 
-            pkgData = await parseBufferBin(ba,true);
+            pkgData = await parseBufferBin(ba, true);
             handlePackageDataBin(pkgData, pkgName);
             quotePackageMap[file] = pkgData['package.xml'];
 
@@ -910,7 +920,7 @@ async function decodeComponentData(contentItem, files) {
     }
 
 
-    if (rawData.readBool()){
+    if (rawData.readBool()) {
         // rawData.skip(8);
         pi.clipSoftness = {};
         pi.clipSoftness.x = rawData.readInt();
@@ -970,7 +980,6 @@ async function decodeComponentData(contentItem, files) {
         }
 
         if (pkgId != null) { // 跨包引用了，扫描同目录下的其他文件
-            if("ew4g3" == src){debugger}
             var quoteFiles = fs.readdirSync(inputPath);
             var quotePackage = [];
             quoteFiles.forEach((file) => {
@@ -1027,7 +1036,7 @@ async function decodeComponentData(contentItem, files) {
                     })
 
                     // 存在同名包的情况，直到找到为止
-                    if(child.file && child.path ){
+                    if (child.file && child.path) {
                         break;
                     }
                 }
@@ -2236,7 +2245,7 @@ function setupController(buffer) {
 
     buffer.seek(beginPos, 2);
 
-    
+
 
     cnt = buffer.readShort();
     if (cnt > 0) {
@@ -2465,7 +2474,7 @@ function constructScrollBar(buffer) {
     return data;
 }
 
-function decodeBinary(buffer,isQuotePackage = false) {
+function decodeBinary(buffer, isQuotePackage = false) {
     let ver2 = buffer.version >= 2;
     let indexTablePos = buffer.pos;
     let _items = [];
@@ -2613,6 +2622,7 @@ function decodeBinary(buffer,isQuotePackage = false) {
     buffer.seek(indexTablePos, 2);
 
     cnt = buffer.readUshort();
+
     for (i = 0; i < cnt; i++) {
         nextPos = buffer.readUshort();
         nextPos += buffer.pos;
@@ -2705,7 +2715,7 @@ const parseJSON2XML = (json) => {
     }
     let {
         width, height,
-        objectType, overflow,clipSoftness,
+        objectType, overflow, clipSoftness,
         scroll, margin,
         hitTestId, controllers,
         transitions,
@@ -3006,10 +3016,10 @@ function parseDisplayList(parent) {
             if (fileExt == "Sound") {
                 fileName = path.slice(1, path.length) + file;
             } else {
-                if(!path){
+                if (!path) {
                     // debugger;
-                //     // fileName = name + fileExt;
-                }else{
+                    //     // fileName = name + fileExt;
+                } else {
                     fileName = path.slice(1, path.length) + file + fileExt;
                 }
             }
@@ -3640,6 +3650,22 @@ const handleSprites = async (spritesMap, flag = true, resFiles) => {
     console.log("finish crop image");
 }
 
+const handleImages = async (imageMap) => {
+    for (let key in imageMap) {
+        let image = imageMap[key];
+        let { file, name, path } = image;
+        let ext = getFileExt(file)
+        let fileName = name + ext;
+        if(fs.existsSync(inputPath + file)){
+            let out = outputPath+importFileName + path
+            if(!fs.existsSync(out)){
+                fs.mkdirSync(out.substring(0,out.length-1).replace(/\//g,"\\"));
+            }
+            fs.renameSync(inputPath + file, out + fileName);
+        }
+    }
+}
+
 const handleSound = async (soundInfo, flag = true) => {
     console.log("start handleSound");
     soundInfo.forEach((item) => {
@@ -3712,7 +3738,12 @@ const createFileByData = (data, ext) => {
     console.log("finish createFileByData");
 }
 
-function encodeHTML(str){
+function getFileExt(name) {
+    let arr = name.split(".");
+    return `.${arr[arr.length - 1]}`;
+}
+
+function encodeHTML(str) {
     if (!str)
         return "";
     else
@@ -3720,9 +3751,9 @@ function encodeHTML(str){
             .replace(/>/g, "&gt;").replace(/'/g, "&apos;").replace(/"/g, "&quot;");
 }
 
-// restore(`./test/test.fui`, "./output/test/"); // test
+restore(`./ui/stateMachineEditor.xml`, "./output/stateMachineEditor/"); // test
 
-exports.restore = restore
+// exports.restore = restore
 
 
 
