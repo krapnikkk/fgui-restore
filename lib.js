@@ -545,7 +545,7 @@ const handlePackageDataBin = (pkgData, name) => {
                 }
                 if (item['$']['name'].indexOf('.png') == -1) {
 
-                    let ext = getFileExt(item['$']['file'])
+                    let ext = getFileExt(item['$']['file']||".png");
                     item['$']['name'] = item['$']['name'] + ext;
                 }
                 images.push(item);
@@ -1735,8 +1735,9 @@ function gearSetup(buffer, gearType) {
         for (i = 0; i < cnt; i++) {
             page = buffer.readS();
             if (page == null) {
-                page = i + "";
-                status = {};
+                // page = i + "";
+                // status = {};
+                continue;
             }
             status = addStatus(gearType, buffer);
 
@@ -3751,9 +3752,9 @@ function encodeHTML(str) {
             .replace(/>/g, "&gt;").replace(/'/g, "&apos;").replace(/"/g, "&quot;");
 }
 
-restore(`./ui/stateMachineEditor.xml`, "./output/stateMachineEditor/"); // test
+// restore(`./test/ModalWaiting.bin`, "./output/"); // test
 
-// exports.restore = restore
+exports.restore = restore
 
 
 
