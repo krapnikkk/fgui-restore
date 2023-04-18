@@ -613,11 +613,13 @@ const parseBufferBin = async (ba, isQuotePackage = false) => {
     return decodeBinary(ba, isQuotePackage);
 }
 
+let imagesFileMap;
 const createByPackageBin = async (pkgData) => {
     // handle package.xml & get pkgName and pkgId
     const packageData = pkgData["package.xml"];
     const sprites = pkgData['sprites.bytes'];
     const files = pkgData['files'];
+    imagesFileMap = files;
     // Verifies if the texture exists in the same directory
     let atlasInfo = packageData["packageDescription"]['resources']['atlas'];
     if (atlasInfo) {
@@ -2994,7 +2996,11 @@ function parseDisplayList(parent) {
             alpha, customData,
             blend, filter, filterData,
             tooltips } = content;
+        let image = imagesFileMap[src];
         let size = `${width},${height}` != "undefined,undefined" ? `${width},${height}` : null;
+        if(image&&!size){
+            size = `${image.width},${image.height}`
+        }
         let restrictSize = `${minWidth},${maxWidth},${minHeight},${maxHeight}` != "undefined,undefined,undefined,undefined" ? `${minWidth},${maxWidth},${minHeight},${maxHeight}` : null;
         let scale = `${scaleX},${scaleY}` != "undefined,undefined" ? `${Math.round(scaleX * 100) / 100},${Math.round(scaleY * 100) / 100}` : null;
         let skew = `${skewX},${skewY}` != "undefined,undefined" ? `${skewX},${skewY}` : null;
