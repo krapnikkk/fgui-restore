@@ -1,3 +1,7 @@
+
+> [!TIP]
+> **本项目将不再维护,请移步新项目 [OpenFairyGUI](https://github.com/OpenFairyGUI/OpenFairyGUI)**
+> 
 ## 写在前面
 
 <font size=5>本工程仅作学习研究使用，本意用于工程项目不幸破损，通过发布出来的资源文件进行紧急还原，请勿用于资源破解侵权等行为，否则后果自负！！</font>
