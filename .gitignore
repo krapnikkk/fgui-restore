@@ -4,3 +4,5 @@ node_modules/
 UIProject/
 output/
 ui
+input/
+build/
